@@ -2,6 +2,9 @@
 name = "applications"
 version = "0.1.0"
 edition = "2021"
+description = "A cross-platform library for finding installed applications."
+license = "MIT"
+repository = "https://github.com/HuakunShen/applications-rs/"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
