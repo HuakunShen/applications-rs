@@ -39,4 +39,4 @@
 
 mod apps;
 pub mod common;
-pub use apps::{*};
+pub use apps::*;
