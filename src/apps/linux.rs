@@ -61,31 +61,10 @@ pub fn get_apps() -> Vec<App> {
             if path.extension().is_none() {
                 continue;
             }
-            // read .desktop file, get Exec, name, Icon
-
-            // toml::from_str()
-            // read file content
 
             if path.extension().unwrap() == "desktop" {
-                // let file_content = std::fs::read_to_string(path).unwrap();
                 let app = parse_desktop_file(path.to_path_buf());
                 apps.push(app);
-                // let file_content = file_content.trim();
-                // // let read_content = toml::from_str(file_content);
-                // let parsed_toml: Result<Value, toml::de::Error> = toml::from_str(&file_content);
-                // println!("Parsed toml: {:?}", parsed_toml.map_err(|err| err.to_string()));
-                // if parsed_toml.is_err() {
-                //     continue;
-                // }
-                // println!("Parsed toml: {:?}", parsed_toml);
-
-                // let parsed_toml = parsed_toml.unwrap();
-                // apps.push(App {
-                //     name: path.file_name().unwrap().to_string_lossy().into_owned(),
-                //     icon_path: None,
-                //     app_path_exe: path.to_path_buf(),
-                //     app_desktop_path: path.to_path_buf(),
-                // });
             }
         }
     }
@@ -93,7 +72,15 @@ pub fn get_apps() -> Vec<App> {
 }
 
 #[cfg(target_os = "linux")]
-pub fn open_file_with(file_path: PathBuf, app_path: PathBuf) {}
+pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
+    let exec_path_str = exec_path.to_str().unwrap();
+    let file_path_str = file_path.to_str().unwrap();
+    let output = std::process::Command::new(exec_path_str)
+        .arg(file_path_str)
+        .output()
+        .expect("failed to execute process");
+    println!("Output: {:?}", output);
+}
 
 #[cfg(test)]
 mod tests {
@@ -131,8 +118,8 @@ mod tests {
 
     // #[test]
     // fn open_file_with_vscode() {
-    //     let file_path = PathBuf::from("/Users/hacker/Desktop/new_IQA.py");
-    //     let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
-    //     super::open_file_with(file_path, app_path);
+    //     let file_path = PathBuf::from("/home/huakun/Desktop/CCC");
+    //     let app_path = PathBuf::from("code");
+    //     open_file_with(file_path, app_path);
     // }
 }
