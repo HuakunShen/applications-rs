@@ -151,7 +151,6 @@ pub fn open_file_with(file_path: PathBuf, app_path: PathBuf) {
     println!("output: {:?}", output);
 }
 
-// generate test
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

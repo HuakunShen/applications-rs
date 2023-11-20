@@ -9,4 +9,5 @@ repository = "https://github.com/HuakunShen/applications-rs/"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+toml = "0.8.8"
 walkdir = "2.4.0"
