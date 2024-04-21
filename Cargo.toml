@@ -1,6 +1,6 @@
 [package]
 name = "applications"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A cross-platform library for finding installed applications."
 license = "MIT"
@@ -9,17 +9,5 @@ repository = "https://github.com/HuakunShen/applications-rs/"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cocoa = "0.25.0"
-core-foundation = "0.9.4"
-gio = "0.19.4"
-glob = "0.3.1"
-gtk = "0.18.1"
-image = "0.25.1"
-objc = "0.2.7"
-plist = "1.6.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_derive = { version = "1.0" }
-serde_json = "1.0.116"
-tauri-icns = "0.1.0"
-thiserror = "1.0.58"
+ini = "1.3.0"
 walkdir = "2.4.0"

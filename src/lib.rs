@@ -30,7 +30,7 @@
 //! ```rust
 //! use std::path::PathBuf;
 //! use applications::{get_apps, open_file_with};
-//! let file_path = PathBuf::from("/Users/hacker/Desktop/new_IQA.py");
+//! let file_path = PathBuf::from("/Users/hacker/Desktop/app/main.rs");
 //! let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
 //!
 //! open_file_with(file_path, app_path);
