@@ -36,7 +36,9 @@
 //! open_file_with(file_path, app_path);
 //! ```
 //!
-
-mod apps;
+pub mod error;
+pub mod prelude;
+pub mod utils;
+pub mod platforms;
 pub mod common;
-pub use apps::*;
+pub use platforms::*;

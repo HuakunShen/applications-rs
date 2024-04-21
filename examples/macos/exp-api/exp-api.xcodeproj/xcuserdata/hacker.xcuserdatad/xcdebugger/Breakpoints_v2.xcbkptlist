@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "F3F0C71D-CD1B-4A59-9983-7B58E9898087"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "4035965F-8603-4A75-8214-6B64A7684EE5"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "exp-api/main.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "10"
+            endingLineNumber = "10"
+            landmarkName = "unknown"
+            landmarkType = "0">
+            <Locations>
+               <Location
+                  uuid = "4035965F-8603-4A75-8214-6B64A7684EE5 - cb427a0a075444fa"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "main"
+                  moduleName = "exp-api"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/hacker/Documents/Dev/projects/applications-rs/examples/macos/exp-api/exp-api/main.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "10"
+                  endingLineNumber = "10">
+               </Location>
+               <Location
+                  uuid = "4035965F-8603-4A75-8214-6B64A7684EE5 - d5923e83d16b220d"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (__C.NSBundle) -&gt; () in exp_api"
+                  moduleName = "exp-api"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/hacker/Documents/Dev/projects/applications-rs/examples/macos/exp-api/exp-api/main.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "11"
+                  endingLineNumber = "11">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>

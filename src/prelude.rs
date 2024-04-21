@@ -1,0 +1,14 @@
+// Re-export the crate Error.
+pub use crate::error::Error;
+
+// Alias Result to be the crate Result.
+pub type Result<T> = core::result::Result<T, Error>;
+// pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+
+
+// Generic Wrapper tuple struct for newtype pattern,
+// mostly for external type to type From/TryFrom conversions
+pub struct W<T>(pub T);
+
+// Personal preference.
+pub use std::format as f;
