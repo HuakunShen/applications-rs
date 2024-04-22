@@ -1,11 +1,9 @@
+use crate::common::{App, PlatformContext, PlatformTrait};
+use ini::ini;
 use std::collections::HashSet;
-use crate::common::App;
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use ini::ini;
 
-
-#[cfg(target_os = "linux")]
 pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
     let mut app = App::default();
     app.app_desktop_path = desktop_file_path.clone();
@@ -30,8 +28,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
     return app;
 }
 
-#[cfg(target_os = "linux")]
-pub fn get_apps() -> Vec<App> {
+pub fn get_all_apps() -> Vec<App> {
     // read XDG_DATA_DIRS env var
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
@@ -71,7 +68,6 @@ pub fn get_apps() -> Vec<App> {
     apps
 }
 
-#[cfg(target_os = "linux")]
 pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
     let exec_path_str = exec_path.to_str().unwrap();
     let file_path_str = file_path.to_str().unwrap();
@@ -82,10 +78,47 @@ pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
     println!("Output: {:?}", output);
 }
 
+pub struct LinuxImpl {
+    cache_apps: Vec<App>,
+}
+
+impl LinuxImpl {
+    pub fn new() -> Self {
+        LinuxImpl { cache_apps: vec![] }
+    }
+
+    pub async fn init(&mut self) -> Result<()> {
+        self.refresh_apps()?;
+        Ok(())
+    }
+}
+
+impl PlatformTrait for LinuxImpl {
+    fn refresh_apps(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn get_all_apps(&self) -> Vec<App> {
+        todo!()
+    }
+
+    fn open_file_with(&self, file_path: PathBuf, app: App) {
+        todo!()
+    }
+
+    fn get_running_apps(&self) -> Vec<App> {
+        todo!()
+    }
+
+    fn get_frontmost_application(&self) -> Result<App> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use crate::parse_desktop_file;
+    use std::path::PathBuf;
 
     use super::{get_apps, open_file_with};
 
@@ -105,7 +138,9 @@ mod tests {
 
     #[test]
     fn test_parse_desktop_file() {
-        let app = parse_desktop_file(PathBuf::from("/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop"));
+        let app = parse_desktop_file(PathBuf::from(
+            "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
+        ));
         println!("App: {:?}", app);
     }
 

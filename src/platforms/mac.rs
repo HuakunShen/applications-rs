@@ -1,4 +1,4 @@
-use crate::common::{App, AppTrait};
+use crate::common::{App, AppTrait, PlatformContext, PlatformTrait};
 use crate::error::Error;
 use crate::prelude::*;
 use crate::utils::image::{RustImage, RustImageData};
@@ -17,7 +17,6 @@ use tauri_icns::{IconFamily, IconType};
 use walkdir::WalkDir;
 
 #[deprecated]
-#[cfg(target_os = "macos")]
 fn find_ios_app_icon(app_path: PathBuf) -> Option<PathBuf> {
     // find all png files in the app_path, search for AppIcon ignore case in the pngs
     let mut all_icons: Vec<PathBuf> = vec![];
@@ -65,7 +64,6 @@ fn find_ios_app_icon(app_path: PathBuf) -> Option<PathBuf> {
 }
 
 #[deprecated]
-#[cfg(target_os = "macos")]
 pub fn find_app_icns(app_path: PathBuf) -> Option<PathBuf> {
     // default location: Contents/Resources/AppIcon.icns
     let contents_path = app_path.join("Contents");
@@ -123,7 +121,6 @@ pub fn find_app_icns(app_path: PathBuf) -> Option<PathBuf> {
 }
 
 // #[deprecated]
-// #[cfg(target_os = "macos")]
 // pub fn get_apps() -> Vec<App> {
 //     let applications_folder = PathBuf::from("/Applications");
 //     // iterate this folder
@@ -158,8 +155,8 @@ pub fn find_app_icns(app_path: PathBuf) -> Option<PathBuf> {
 /// On Mac, the `open` command has a optional `-a` flag to specify the app to open the file with.
 /// For example, opening `main.rs` with VSCode: `open -a "Visual Studio Code" main.rs`, where "Visual Studio Code.app" is the app folder name.
 /// The `.app` can be included or discarded in the `open` command.
-#[cfg(target_os = "macos")]
-pub fn open_file_with(file_path: PathBuf, app_path: PathBuf) {
+pub fn open_file_with(file_path: PathBuf, app: App) {
+    let app_path = app.app_desktop_path; // on mac, desktop path is the .app path
     let mut command = std::process::Command::new("open");
     command.arg("-a");
     command.arg(app_path);
@@ -168,7 +165,6 @@ pub fn open_file_with(file_path: PathBuf, app_path: PathBuf) {
     println!("output: {:?}", output);
 }
 
-#[cfg(target_os = "macos")]
 pub fn nsstring_to_string(nsstring: *mut Object) -> Result<String> {
     unsafe {
         let cstr: *const i8 = msg_send![nsstring, UTF8String];
@@ -184,7 +180,6 @@ pub fn nsstring_to_string(nsstring: *mut Object) -> Result<String> {
     }
 }
 
-// #[cfg(target_os = "macos")]
 // fn path_to_app(path_str: String) -> Result<App> {
 //     // convert path_str to PathBuf
 //     let path = PathBuf::from(path_str);
@@ -221,7 +216,6 @@ pub fn nsstring_to_string(nsstring: *mut Object) -> Result<String> {
 //     Ok(app)
 // }
 
-#[cfg(target_os = "macos")]
 pub fn get_frontmost_application() -> Result<App> {
     unsafe {
         let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
@@ -242,7 +236,7 @@ pub fn get_frontmost_application() -> Result<App> {
     }
 }
 
-#[cfg(target_os = "macos")]
+/// This is a mac-only function
 pub fn get_menu_bar_owning_application() -> Result<App> {
     unsafe {
         let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
@@ -263,7 +257,6 @@ pub fn get_menu_bar_owning_application() -> Result<App> {
     }
 }
 
-#[cfg(target_os = "macos")]
 pub fn get_all_apps() -> Result<Vec<App>> {
     let output = run_system_profiler_to_get_app_list();
     // parse output string in json format to MacSystemProfilerAppList
@@ -292,7 +285,6 @@ impl From<MacSystemProfilterAppInfo> for Option<App> {
     }
 }
 
-#[cfg(target_os = "macos")]
 pub fn get_running_apps() -> Vec<App> {
     unsafe {
         let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
@@ -339,6 +331,50 @@ impl AppTrait for App {
         } else {
             None
         }
+    }
+}
+
+impl PlatformContext {
+    pub fn new() -> Self {
+        PlatformContext {
+            cached_apps: vec![],
+        }
+    }
+
+    pub async fn init(&mut self) -> Result<()> {
+        self.refresh_apps()?;
+        Ok(())
+    }
+
+    pub fn refresh_apps_in_background(&mut self) {
+        let mut ctx = self.clone();
+        tokio::spawn(async move {
+            ctx.refresh_apps().unwrap();
+        });
+    }
+}
+
+impl PlatformTrait for PlatformContext {
+    fn refresh_apps(&mut self) -> Result<()> {
+        let apps = get_all_apps()?;
+        self.cached_apps = apps;
+        Ok(())
+    }
+
+    fn get_all_apps(&self) -> Vec<App> {
+        self.cached_apps.clone()
+    }
+
+    fn open_file_with(&self, file_path: PathBuf, app: App) {
+        open_file_with(file_path, app)
+    }
+
+    fn get_running_apps(&self) -> Vec<App> {
+        get_running_apps()
+    }
+
+    fn get_frontmost_application(&self) -> Result<App> {
+        get_frontmost_application()
     }
 }
 
@@ -392,17 +428,42 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn ios_app() {
-    //     let path = PathBuf::from("/Applications/Surge.app");
-    //     let found = find_ios_app_icon(path);
-    //     println!("Found: {:?}", found);
-    // }
+    #[test]
+    fn open_file_with_vscode() {
+        let file_path = PathBuf::from("/Users/hacker/Desktop");
+        let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
+        let app = MacAppPath::new(app_path).to_app().unwrap();
+        super::open_file_with(file_path, app);
+    }
 
-    // #[test]
-    // fn open_file_with_vscode() {
-    //     let file_path = PathBuf::from("/Users/hacker/Desktop/new_IQA.py");
-    //     let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
-    //     super::open_file_with(file_path, app_path);
-    // }
+    #[tokio::test]
+    async fn test_platform_context() {
+        let mut ctx = PlatformContext::new();
+        ctx.init().await.unwrap();
+        let apps1 = ctx.get_all_apps();
+        assert!(apps1.len() > 0);
+        let apps2 = ctx.get_all_apps();
+        assert!(apps2.len() > 0);
+        assert_eq!(apps1.len(), apps2.len());
+        ctx.cached_apps = vec![];
+        let apps3 = ctx.get_all_apps();
+        assert_eq!(apps3.len(), 0);
+        ctx.refresh_apps().unwrap();
+        let apps4 = ctx.get_all_apps();
+        assert!(apps4.len() > 0);
+        assert_eq!(apps1.len(), apps4.len());
+    }
+
+    #[tokio::test]
+    async fn periodic_refresh_apps() {
+        let mut ctx = PlatformContext::new();
+        ctx.init().await.unwrap();
+        ctx.cached_apps = vec![];
+        ctx.refresh_apps_in_background();
+        let apps = ctx.get_all_apps();
+        assert_eq!(apps.len(), 0);
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        let apps = ctx.get_all_apps();
+        assert!(apps.len() > 0);
+    }
 }
