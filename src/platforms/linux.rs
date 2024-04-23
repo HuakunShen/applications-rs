@@ -1,4 +1,5 @@
-use crate::common::{App, PlatformContext, PlatformTrait};
+use crate::common::{App, AppInfo, AppInfoContext};
+use crate::prelude::*;
 use ini::ini;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -68,19 +69,19 @@ pub fn get_all_apps() -> Vec<App> {
     apps
 }
 
-pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
-    let exec_path_str = exec_path.to_str().unwrap();
+pub fn open_file_with(file_path: PathBuf, app: App) -> Result<()> {
+    let exe_path = app.app_path_exe.unwrap();
+    let exec_path_str = exe_path.to_str().unwrap();
     let file_path_str = file_path.to_str().unwrap();
     let output = std::process::Command::new(exec_path_str)
         .arg(file_path_str)
         .output()
         .expect("failed to execute process");
-    println!("Output: {:?}", output);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parse_desktop_file;
     use std::path::PathBuf;
 
     use super::*;
