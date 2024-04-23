@@ -11,14 +11,17 @@
 //! ```
 //!
 //! ```rust
+//! use applications::{AppInfoContext, AppInfo};
+//! 
 //! fn main() {
-//!     let mut ctx = crate::common::AppInfoContext::new();
-//!     // this runs a refresh thread in the background, recommended for Mac, whose system_profiler command takes a few seconds to run
-//!     ctx.refresh_apps_in_background();
-//!     assert_eq!(ctx.is_refreshing(), true);
-//!     thread::sleep(Duration::from_secs(5)); // let's wait for the refresh to finish, otherwise everything ends when main thread quits
-//!     assert_eq!(ctx.is_refreshing(), false);
-//!     assert!(ctx.get_all_apps().len() > 0);
+//!     let mut ctx = AppInfoContext::new();
+//!     ctx.refresh_apps().unwrap(); // must refresh apps before getting them
+//!     let apps = ctx.get_all_apps();
+//!     println!("Apps: {:#?}", apps);
+//!     let frontmost_app = ctx.get_frontmost_application().unwrap();
+//!     println!("Frontmost App: {:#?}", frontmost_app);
+//!     let running_apps = ctx.get_running_apps();
+//!     println!("Running Apps: {:#?}", running_apps);
 //! }
 //! ```
 
