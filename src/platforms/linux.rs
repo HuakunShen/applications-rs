@@ -83,13 +83,43 @@ pub fn get_running_apps() -> Vec<App> {
     todo!()
 }
 
+/// TODO: this is not working yet, xprop gives the current app name, but we need to locate its .desktop file if possible
+/// If I need to compare app name with app apps, then this function should be moved to AppInfoContext where there is a `cached_apps`
 pub fn get_frontmost_application() -> Result<App> {
-    todo!()
+    let output = std::process::Command::new("xprop")
+        .arg("-root")
+        .arg("_NET_ACTIVE_WINDOW")
+        .output()
+        .expect("failed to execute process");
+
+    let output = std::str::from_utf8(&output.stdout).unwrap();
+    let id = output.split_whitespace().last().unwrap();
+
+    let output = std::process::Command::new("xprop")
+        .arg("-id")
+        .arg(id)
+        .arg("WM_CLASS")
+        .output()
+        .expect("failed to execute process");
+
+    let output = std::str::from_utf8(&output.stdout).unwrap();
+    let app_name = output.split('"').nth(1).unwrap();
+
+    let apps = get_all_apps()?;
+    for app in apps {
+        if app.name == app_name {
+            return Ok(app);
+        }
+    }
+
+    Err(Error::Generic("No matching app found".into()))
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::process::Command;
+    use std::str;
 
     use super::*;
 
@@ -98,6 +128,12 @@ mod tests {
         let apps = get_all_apps().unwrap();
         // println!("App: {:#?}", apps);
         assert!(apps.len() > 0);
+        // iterate through apps and find the onces whose name contains "terminal"
+        for app in apps {
+            if app.name.to_lowercase().contains("code") {
+                println!("App: {:#?}", app);
+            }
+        }
     }
 
     #[test]
