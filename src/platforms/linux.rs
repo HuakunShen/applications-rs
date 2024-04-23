@@ -1,11 +1,10 @@
+use crate::common::{App, AppInfo, AppInfoContext};
+use crate::prelude::*;
+use ini::ini;
 use std::collections::HashSet;
-use crate::common::App;
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use ini::ini;
 
-
-#[cfg(target_os = "linux")]
 pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
     let mut app = App::default();
     app.app_desktop_path = desktop_file_path.clone();
@@ -16,7 +15,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
         let desktop_entry = map["desktop entry"].clone();
         if desktop_entry.contains_key("exec") {
             let exec = desktop_entry["exec"].clone();
-            app.app_path_exe = PathBuf::from(exec.unwrap());
+            app.app_path_exe = Some(PathBuf::from(exec.unwrap()));
         }
         if desktop_entry.contains_key("icon") {
             let icon = desktop_entry["icon"].clone();
@@ -30,8 +29,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
     return app;
 }
 
-#[cfg(target_os = "linux")]
-pub fn get_apps() -> Vec<App> {
+pub fn get_all_apps() -> Result<Vec<App>> {
     // read XDG_DATA_DIRS env var
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
@@ -40,7 +38,7 @@ pub fn get_apps() -> Vec<App> {
     search_dirs.insert("/usr/share/applications");
     // get home dir of current user
     let home_dir = std::env::var("HOME").unwrap();
-    let mut home_path = PathBuf::from(home_dir);
+    let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
     search_dirs.insert(local_share_apps.to_str().unwrap());
     search_dirs.insert("/usr/share/xsessions");
@@ -68,45 +66,82 @@ pub fn get_apps() -> Vec<App> {
             }
         }
     }
-    apps
+    Ok(apps)
 }
 
-#[cfg(target_os = "linux")]
-pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
-    let exec_path_str = exec_path.to_str().unwrap();
+pub fn open_file_with(file_path: PathBuf, app: App) {
+    let exe_path = app.app_path_exe.unwrap();
+    let exec_path_str = exe_path.to_str().unwrap();
     let file_path_str = file_path.to_str().unwrap();
     let output = std::process::Command::new(exec_path_str)
         .arg(file_path_str)
         .output()
         .expect("failed to execute process");
-    println!("Output: {:?}", output);
+}
+
+pub fn get_running_apps() -> Vec<App> {
+    todo!()
+}
+
+/// TODO: this is not working yet, xprop gives the current app name, but we need to locate its .desktop file if possible
+/// If I need to compare app name with app apps, then this function should be moved to AppInfoContext where there is a `cached_apps`
+pub fn get_frontmost_application() -> Result<App> {
+    let output = std::process::Command::new("xprop")
+        .arg("-root")
+        .arg("_NET_ACTIVE_WINDOW")
+        .output()
+        .expect("failed to execute process");
+
+    let output = std::str::from_utf8(&output.stdout).unwrap();
+    let id = output.split_whitespace().last().unwrap();
+
+    let output = std::process::Command::new("xprop")
+        .arg("-id")
+        .arg(id)
+        .arg("WM_CLASS")
+        .output()
+        .expect("failed to execute process");
+
+    let output = std::str::from_utf8(&output.stdout).unwrap();
+    let app_name = output.split('"').nth(1).unwrap();
+
+    let apps = get_all_apps()?;
+    for app in apps {
+        if app.name == app_name {
+            return Ok(app);
+        }
+    }
+
+    Err(Error::Generic("No matching app found".into()))
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use crate::parse_desktop_file;
+    use std::process::Command;
+    use std::str;
 
-    use super::{get_apps, open_file_with};
-
-    #[test]
-    fn it_works() {
-        let apps = get_apps();
-        println!("Apps: {:?}", apps);
-    }
+    use super::*;
 
     #[test]
     fn test_get_apps() {
-        let apps = get_apps();
+        let apps = get_all_apps().unwrap();
+        // println!("App: {:#?}", apps);
+        assert!(apps.len() > 0);
+        // iterate through apps and find the onces whose name contains "terminal"
         for app in apps {
-            println!("App: {:?}", app);
+            if app.name.to_lowercase().contains("code") {
+                println!("App: {:#?}", app);
+            }
         }
     }
 
     #[test]
     fn test_parse_desktop_file() {
-        let app = parse_desktop_file(PathBuf::from("/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop"));
-        println!("App: {:?}", app);
+        let app = parse_desktop_file(PathBuf::from(
+            "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
+        ));
+        println!("App: {:#?}", app);
     }
 
     // #[test]

@@ -1,16 +1,16 @@
-use crate::common::App;
+use crate::common::{App, PlatformContext, PlatformTrait};
 use std::path::PathBuf;
 use toml;
 use walkdir::WalskDir;
 
 #[cfg(target_os = "windows")]
 pub fn get_apps() -> Vec<App> {
-   
-   vec![]
+    vec![]
 }
 
 #[cfg(target_os = "windows")]
 pub fn open_file_with(file_path: PathBuf, app_path: PathBuf) {}
+
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,1 @@
+1. [ ] How to get `NSRunningApplications` from a given `.app` path? It contains useful and accurate info like `executableURL` and `icon` without needing to search.
