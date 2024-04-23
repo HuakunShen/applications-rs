@@ -1,9 +1,5 @@
 // Taken from https://github.com/ChurchTao/clipboard-rs/blob/master/src/common.rs
-use crate::prelude::*;
-use image::{
-    imageops::FilterType, io::Reader as ImageReader, DynamicImage, GenericImage, GenericImageView,
-    ImageFormat, RgbImage,
-};
+use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
 use std::io::Cursor;
 pub struct RustImageData {
     width: u32,
@@ -14,7 +10,8 @@ pub struct RustImageData {
 /// 此处的 RustImageBuffer 已经是带有图片格式的字节流，例如 png,jpeg;
 pub struct RustImageBuffer(Vec<u8>);
 // TODO: Learn more about error, merge this with crate::error::Error
-pub type ImageResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type ImageResult<T> =
+    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 pub trait RustImage: Sized {
     /// create an empty image
