@@ -4,7 +4,7 @@ use crate::utils::image::RustImageData;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct App {
     pub name: String,
     pub icon_path: Option<PathBuf>,

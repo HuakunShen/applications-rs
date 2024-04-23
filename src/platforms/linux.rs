@@ -14,7 +14,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
         let desktop_entry = map["desktop entry"].clone();
         if desktop_entry.contains_key("exec") {
             let exec = desktop_entry["exec"].clone();
-            app.app_path_exe = PathBuf::from(exec.unwrap());
+            app.app_path_exe = Some(PathBuf::from(exec.unwrap()));
         }
         if desktop_entry.contains_key("icon") {
             let icon = desktop_entry["icon"].clone();
@@ -37,7 +37,7 @@ pub fn get_all_apps() -> Vec<App> {
     search_dirs.insert("/usr/share/applications");
     // get home dir of current user
     let home_dir = std::env::var("HOME").unwrap();
-    let mut home_path = PathBuf::from(home_dir);
+    let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
     search_dirs.insert(local_share_apps.to_str().unwrap());
     search_dirs.insert("/usr/share/xsessions");
@@ -78,62 +78,18 @@ pub fn open_file_with(file_path: PathBuf, exec_path: PathBuf) {
     println!("Output: {:?}", output);
 }
 
-pub struct LinuxImpl {
-    cache_apps: Vec<App>,
-}
-
-impl LinuxImpl {
-    pub fn new() -> Self {
-        LinuxImpl { cache_apps: vec![] }
-    }
-
-    pub async fn init(&mut self) -> Result<()> {
-        self.refresh_apps()?;
-        Ok(())
-    }
-}
-
-impl PlatformTrait for LinuxImpl {
-    fn refresh_apps(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn get_all_apps(&self) -> Vec<App> {
-        todo!()
-    }
-
-    fn open_file_with(&self, file_path: PathBuf, app: App) {
-        todo!()
-    }
-
-    fn get_running_apps(&self) -> Vec<App> {
-        todo!()
-    }
-
-    fn get_frontmost_application(&self) -> Result<App> {
-        todo!()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::parse_desktop_file;
     use std::path::PathBuf;
 
-    use super::{get_apps, open_file_with};
-
-    #[test]
-    fn it_works() {
-        let apps = get_apps();
-        println!("Apps: {:?}", apps);
-    }
+    use super::*;
 
     #[test]
     fn test_get_apps() {
-        let apps = get_apps();
-        for app in apps {
-            println!("App: {:?}", app);
-        }
+        let apps = get_all_apps();
+        // println!("App: {:#?}", apps);
+        assert!(apps.len() > 0);
     }
 
     #[test]
@@ -141,7 +97,7 @@ mod tests {
         let app = parse_desktop_file(PathBuf::from(
             "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
         ));
-        println!("App: {:?}", app);
+        println!("App: {:#?}", app);
     }
 
     // #[test]
