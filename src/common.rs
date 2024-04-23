@@ -15,6 +15,7 @@ pub struct App {
     pub app_desktop_path: PathBuf,     // Path to the .desktop file for Linux, .app for Mac
 }
 
+/// This trait specifies the methods that an app should implement, such as loading its logo
 pub trait AppTrait {
     fn load_icon(&self) -> Option<RustImageData>;
 }

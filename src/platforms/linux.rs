@@ -29,7 +29,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
     return app;
 }
 
-pub fn get_all_apps() -> Vec<App> {
+pub fn get_all_apps() -> Result<Vec<App>> {
     // read XDG_DATA_DIRS env var
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
@@ -66,10 +66,10 @@ pub fn get_all_apps() -> Vec<App> {
             }
         }
     }
-    apps
+    Ok(apps)
 }
 
-pub fn open_file_with(file_path: PathBuf, app: App) -> Result<()> {
+pub fn open_file_with(file_path: PathBuf, app: App) {
     let exe_path = app.app_path_exe.unwrap();
     let exec_path_str = exe_path.to_str().unwrap();
     let file_path_str = file_path.to_str().unwrap();
@@ -77,7 +77,14 @@ pub fn open_file_with(file_path: PathBuf, app: App) -> Result<()> {
         .arg(file_path_str)
         .output()
         .expect("failed to execute process");
-    Ok(())
+}
+
+pub fn get_running_apps() -> Vec<App> {
+    todo!()
+}
+
+pub fn get_frontmost_application() -> Result<App> {
+    todo!()
 }
 
 #[cfg(test)]
@@ -88,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_get_apps() {
-        let apps = get_all_apps();
+        let apps = get_all_apps().unwrap();
         // println!("App: {:#?}", apps);
         assert!(apps.len() > 0);
     }

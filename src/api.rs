@@ -87,4 +87,13 @@ mod tests {
         assert_eq!(ctx.is_refreshing(), false);
         assert!(ctx.get_all_apps().len() > 0);
     }
+
+    #[test]
+    fn get_all_apps() {
+        let mut ctx = AppInfoContext::new();
+        ctx.refresh_apps().unwrap();
+        let apps = ctx.get_all_apps();
+        println!("Apps Length: {:#?}", apps.len());
+        assert!(apps.len() > 0);
+    }
 }
