@@ -25,4 +25,3 @@ core-foundation = "0.9.4"
 objc = "0.2.7"
 plist = "1.6.1"
 tauri-icns = "0.1.0"
-

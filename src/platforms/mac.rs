@@ -1,4 +1,4 @@
-use crate::common::{App, AppTrait, PlatformContext, PlatformTrait};
+use crate::common::{App, AppTrait};
 use crate::error::Error;
 use crate::prelude::*;
 use crate::utils::image::{RustImage, RustImageData};
@@ -12,7 +12,6 @@ use objc::{class, msg_send, runtime::Object, sel, sel_impl};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::str;
 use tauri_icns::{IconFamily, IconType};
 use walkdir::WalkDir;
 
@@ -334,54 +333,10 @@ impl AppTrait for App {
     }
 }
 
-impl PlatformContext {
-    pub fn new() -> Self {
-        PlatformContext {
-            cached_apps: vec![],
-        }
-    }
-
-    pub async fn init(&mut self) -> Result<()> {
-        self.refresh_apps()?;
-        Ok(())
-    }
-
-    pub fn refresh_apps_in_background(&mut self) {
-        let mut ctx = self.clone();
-        tokio::spawn(async move {
-            ctx.refresh_apps().unwrap();
-        });
-    }
-}
-
-impl PlatformTrait for PlatformContext {
-    fn refresh_apps(&mut self) -> Result<()> {
-        let apps = get_all_apps()?;
-        self.cached_apps = apps;
-        Ok(())
-    }
-
-    fn get_all_apps(&self) -> Vec<App> {
-        self.cached_apps.clone()
-    }
-
-    fn open_file_with(&self, file_path: PathBuf, app: App) {
-        open_file_with(file_path, app)
-    }
-
-    fn get_running_apps(&self) -> Vec<App> {
-        get_running_apps()
-    }
-
-    fn get_frontmost_application(&self) -> Result<App> {
-        get_frontmost_application()
-    }
-}
-
 // generate test
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
     use crate::utils::mac::MacAppPath;
 
@@ -411,8 +366,8 @@ mod tests {
 
     #[test]
     fn get_all_apps_sys_profiler() {
-        let apps = super::get_all_apps();
-        println!("{:#?}", apps);
+        let apps = super::get_all_apps().unwrap();
+        assert!(apps.len() > 0);
     }
 
     #[test]
@@ -428,42 +383,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn open_file_with_vscode() {
-        let file_path = PathBuf::from("/Users/hacker/Desktop");
-        let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
-        let app = MacAppPath::new(app_path).to_app().unwrap();
-        super::open_file_with(file_path, app);
-    }
-
-    #[tokio::test]
-    async fn test_platform_context() {
-        let mut ctx = PlatformContext::new();
-        ctx.init().await.unwrap();
-        let apps1 = ctx.get_all_apps();
-        assert!(apps1.len() > 0);
-        let apps2 = ctx.get_all_apps();
-        assert!(apps2.len() > 0);
-        assert_eq!(apps1.len(), apps2.len());
-        ctx.cached_apps = vec![];
-        let apps3 = ctx.get_all_apps();
-        assert_eq!(apps3.len(), 0);
-        ctx.refresh_apps().unwrap();
-        let apps4 = ctx.get_all_apps();
-        assert!(apps4.len() > 0);
-        assert_eq!(apps1.len(), apps4.len());
-    }
-
-    #[tokio::test]
-    async fn periodic_refresh_apps() {
-        let mut ctx = PlatformContext::new();
-        ctx.init().await.unwrap();
-        ctx.cached_apps = vec![];
-        ctx.refresh_apps_in_background();
-        let apps = ctx.get_all_apps();
-        assert_eq!(apps.len(), 0);
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-        let apps = ctx.get_all_apps();
-        assert!(apps.len() > 0);
-    }
+    // #[test]
+    // fn open_file_with_vscode() {
+    //     let file_path = PathBuf::from("/Users/hacker/Desktop");
+    //     let app_path = PathBuf::from("/Applications/Visual Studio Code.app");
+    //     let app = MacAppPath::new(app_path).to_app().unwrap();
+    //     super::open_file_with(file_path, app);
+    // }
 }
