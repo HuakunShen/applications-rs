@@ -1,6 +1,5 @@
 use crate::common::App;
-use crate::error::Error;
-use crate::prelude::*;
+use anyhow::Result;
 use core_foundation::{bundle::CFBundle, url::CFURL};
 use glob::glob;
 use serde_derive::Deserialize;
@@ -88,7 +87,7 @@ impl InfoPlist {
             Err(_) => match plist::Value::from_file(path) {
                 // using plist::Value is a workaround for the error "duplicate key: CFBundleShortVersionString"
                 Ok(value) => Ok(InfoPlist::from_value(&value).unwrap()),
-                Err(err) => Err(Error::Generic(format!(
+                Err(err) => Err(anyhow::Error::msg(format!(
                     "Fail to parse plist: {}",
                     err.to_string()
                 ))),
@@ -103,13 +102,21 @@ impl InfoPlist {
 
 /// system_profiler command on mac is the simplest way I found to get a list of apps
 /// This function runs the command and returns the stdout
-pub fn run_system_profiler_to_get_app_list() -> String {
+pub fn run_system_profiler_to_get_app_list() -> Result<String> {
     let output = std::process::Command::new("system_profiler")
         .arg("SPApplicationsDataType")
         .arg("-json")
-        .output()
-        .expect("failed to execute process");
-    std::str::from_utf8(&output.stdout).unwrap().to_string()
+        .output()?;
+    Ok(std::str::from_utf8(&output.stdout).unwrap().to_string())
+}
+
+pub fn run_mdfind_to_get_app_list() -> Result<Vec<String>> {
+    let output = std::process::Command::new("mdfind")
+        .arg("kMDItemKind == 'Application'")
+        .output()?;
+    let output = String::from_utf8(output.stdout)?;
+    let lines = output.split("\n").map(|line| line.to_string()).collect();
+    Ok(lines)
 }
 
 /// Mac App folder is very complicated, I made this struct with some helper functions to make it easier to work with
@@ -212,6 +219,8 @@ impl MacAppPath {
         }
     }
 
+    /// Convert the MacAppPath to an App struct
+    /// This function will return None if the path is not an app
     pub fn to_app(&self) -> Option<App> {
         if !self.is_app() {
             return None;
@@ -294,7 +303,7 @@ mod tests {
     /// This test is to make sure all the fields in the InfoPlist struct are deserialized correctly
     #[test]
     fn test_path_is_app() {
-        let output = run_system_profiler_to_get_app_list();
+        let output = run_system_profiler_to_get_app_list().unwrap();
         // parse output string in json format to MacSystemProfilerAppList
         let app_list_json = serde_json::from_str::<MacSystemProfilerAppList>(&output);
         assert!(app_list_json.is_ok());
@@ -339,7 +348,7 @@ mod tests {
     /// Load all apps on the system and check if the Info.plist file can be loaded
     #[test]
     fn test_load_info_plist() {
-        let output = run_system_profiler_to_get_app_list();
+        let output = run_system_profiler_to_get_app_list().unwrap();
         // parse output string in json format to MacSystemProfilerAppList
         let app_list_json = serde_json::from_str::<MacSystemProfilerAppList>(&output);
         assert!(app_list_json.is_ok());

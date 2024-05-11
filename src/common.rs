@@ -1,11 +1,11 @@
 //! Common Data Structures
-use crate::prelude::*;
 use crate::utils::image::RustImageData;
 use serde::{Deserialize, Serialize};
 use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
+use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct App {

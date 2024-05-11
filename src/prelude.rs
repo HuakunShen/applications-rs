@@ -1,8 +1,8 @@
 // Re-export the crate Error.
-pub use crate::error::Error;
+// pub use crate::error::Error;
 
 // Alias Result to be the crate Result.
-pub type Result<T> = core::result::Result<T, Error>;
+// pub type Result<T> = core::result::Result<T, Error>;
 // pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 

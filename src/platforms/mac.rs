@@ -1,11 +1,10 @@
 use crate::common::{App, AppTrait};
-use crate::error::Error;
-use crate::prelude::*;
 use crate::utils::image::{RustImage, RustImageData};
 use crate::utils::mac::{
-    run_system_profiler_to_get_app_list, MacAppPath, MacSystemProfilerAppList,
-    MacSystemProfilterAppInfo,
+    run_mdfind_to_get_app_list, run_system_profiler_to_get_app_list, MacAppPath,
+    MacSystemProfilerAppList, MacSystemProfilterAppInfo,
 };
+use anyhow::Result;
 use cocoa::base::id;
 use objc;
 use objc::{class, msg_send, runtime::Object, sel, sel_impl};
@@ -172,7 +171,7 @@ pub fn nsstring_to_string(nsstring: *mut Object) -> Result<String> {
                 .to_string_lossy()
                 .into_owned())
         } else {
-            Err(Error::Generic(
+            Err(anyhow::Error::msg(
                 "Fail to convert NSString to String".to_string(),
             ))
         }
@@ -227,7 +226,7 @@ pub fn get_frontmost_application() -> Result<App> {
                 let app_path = MacAppPath::new(path.clone());
                 match app_path.to_app() {
                     Some(app) => Ok(app),
-                    None => Err(Error::Generic("Fail to get app".to_string())),
+                    None => Err(anyhow::Error::msg("Fail to get app")),
                 }
             }
             Err(e) => Err(e),
@@ -248,7 +247,7 @@ pub fn get_menu_bar_owning_application() -> Result<App> {
                 let app_path = MacAppPath::new(path.clone());
                 match app_path.to_app() {
                     Some(app) => Ok(app),
-                    None => Err(Error::Generic("Fail to get app".to_string())),
+                    None => Err(anyhow::Error::msg("Fail to get app".to_string())),
                 }
             }
             Err(e) => Err(e),
@@ -256,14 +255,14 @@ pub fn get_menu_bar_owning_application() -> Result<App> {
     }
 }
 
-pub fn get_all_apps() -> Result<Vec<App>> {
-    let output = run_system_profiler_to_get_app_list();
+pub fn get_all_apps_sys_profiler() -> Result<Vec<App>> {
+    let output = run_system_profiler_to_get_app_list()?;
     // parse output string in json format to MacSystemProfilerAppList
     let app_list_json = serde_json::from_str::<MacSystemProfilerAppList>(&output);
     let app_list = match app_list_json {
         Ok(app_list) => app_list.spapplications_data_type,
         Err(e) => {
-            return Err(Error::Generic(format!(
+            return Err(anyhow::Error::msg(format!(
                 "Fail to parse system_profiler output: {}",
                 e
             )))
@@ -275,6 +274,19 @@ pub fn get_all_apps() -> Result<Vec<App>> {
         .filter_map(|x| x) // turn Vec<Option<App>> into Vec<App>
         .collect();
     Ok(apps)
+}
+
+pub fn get_all_apps_mdfind() -> Result<Vec<App>> {
+    let apps_list = run_mdfind_to_get_app_list()?;
+    Ok(apps_list
+        .iter()
+        .map(|app_path| MacAppPath::new(PathBuf::from(app_path)).to_app())
+        .filter_map(|x| x)
+        .collect())
+}
+
+pub fn get_all_apps() -> Result<Vec<App>> {
+    Ok(get_all_apps_mdfind()?)
 }
 
 impl From<MacSystemProfilterAppInfo> for Option<App> {

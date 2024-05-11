@@ -27,7 +27,6 @@
 
 pub mod api;
 pub mod common;
-pub mod error;
 // difference platforms may have different implementation and signatures for each function, so platforms will not be public
 mod platforms;
 pub mod prelude;

@@ -1,10 +1,10 @@
 use crate::common::{App, AppInfo, AppInfoContext};
 use crate::platforms::{get_all_apps, get_frontmost_application, get_running_apps, open_file_with};
-use crate::prelude::*;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{self, Arc, Mutex};
 use std::thread;
+use anyhow::Result;
 
 impl AppInfoContext {
     pub fn new() -> Self {

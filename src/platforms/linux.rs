@@ -43,6 +43,7 @@ pub fn get_all_apps() -> Result<Vec<App>> {
     search_dirs.insert(local_share_apps.to_str().unwrap());
     search_dirs.insert("/usr/share/xsessions");
     search_dirs.insert("/etc/xdg/autostart");
+    search_dirs.insert("/var/lib/snapd/desktop/applications");
     // for each dir, search for .desktop files
     let mut apps: Vec<App> = Vec::new();
     for dir in search_dirs {
