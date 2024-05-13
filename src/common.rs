@@ -32,8 +32,9 @@ pub trait AppInfo {
     fn empty_cache(&mut self);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppInfoContext {
     pub cached_apps: Arc<Mutex<Vec<App>>>,
     pub refreshing: Arc<AtomicBool>,
 }
+
