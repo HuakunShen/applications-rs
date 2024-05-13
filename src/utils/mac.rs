@@ -227,15 +227,17 @@ impl MacAppPath {
         }
         let info_plist_path = self.get_info_plist_path()?;
         let info_plist = InfoPlist::from_file(&info_plist_path).ok()?;
-        let bundle_name = info_plist.cf_bundle_name;
-        let bundle_display_name = info_plist.cf_bundle_display_name;
-        let name = if bundle_name.is_some() {
-            bundle_name.unwrap()
-        } else if bundle_display_name.is_some() {
-            bundle_display_name.unwrap()
-        } else {
-            return None;
-        };
+        // let bundle_name = info_plist.cf_bundle_name;
+        // let bundle_display_name = info_plist.cf_bundle_display_name;
+        // let name = if bundle_name.is_some() {
+        //     bundle_name.unwrap()
+        // } else if bundle_display_name.is_some() {
+        //     bundle_display_name.unwrap()
+        // } else {
+        //     return None;
+        // };
+        // use path filename without .app extension
+        let name = self.0.file_stem()?.to_str()?.to_string();
         let is_ios_app = self.has_wrapper();
         let icon_path = if is_ios_app {
             let icons = info_plist.cf_bundle_icons;
