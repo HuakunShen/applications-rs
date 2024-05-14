@@ -1,5 +1,5 @@
 use crate::common::{App, AppInfo, AppInfoContext};
-use crate::prelude::*;
+use anyhow::Result;
 use ini::ini;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -113,7 +113,7 @@ pub fn get_frontmost_application() -> Result<App> {
         }
     }
 
-    Err(Error::Generic("No matching app found".into()))
+    Err(anyhow::Error::msg("No matching app found".to_string()))
 }
 
 #[cfg(test)]
