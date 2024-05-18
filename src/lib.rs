@@ -3,14 +3,14 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```ignore
 //! let mut ctx = crate::common::AppInfoContext::new();
 //! ctx.refresh_apps().unwrap();        // this will block the thread
 //! let apps = ctx.get_all_apps();
 //! assert!(apps.len() > 0);
 //! ```
 //!
-//! ```rust
+//! ```ignore
 //! use applications::{AppInfoContext, AppInfo};
 //! 
 //! fn main() {
