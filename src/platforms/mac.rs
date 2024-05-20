@@ -9,7 +9,7 @@ use cocoa::base::id;
 use objc;
 use objc::{class, msg_send, runtime::Object, sel, sel_impl};
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor};
 use std::path::PathBuf;
 use tauri_icns::{IconFamily, IconType};
 use walkdir::WalkDir;
@@ -318,7 +318,7 @@ pub fn get_running_apps() -> Vec<App> {
 }
 
 impl AppTrait for App {
-    fn load_icon(&self) -> Option<RustImageData> {
+    fn load_icon(&self) -> Result<RustImageData> {
         if let Some(icon_path) = &self.icon_path {
             let file = BufReader::new(File::open(icon_path).unwrap());
             let icon_family = IconFamily::read(file).unwrap();
@@ -329,18 +329,23 @@ impl AppTrait for App {
                 if icon_type_width > largest_width {
                     largest_width = icon_type_width;
                     largest_icon_type = icon_type;
-                    if largest_width >= 256 {
+                    if largest_width >= 64 {
                         // width 256 is large enough
                         break;
                     }
                 }
             }
-            let largest_icon = icon_family.get_icon_with_type(largest_icon_type).unwrap();
-            let bytes = largest_icon.data();
+            // let largest_icon = icon_family.get_icon_with_type(largest_icon_type).unwrap();
+            // let bytes = largest_icon.data();
+            let largest_icon = icon_family.get_icon_with_type(largest_icon_type)?;
+            let mut buffer: Vec<u8> = Vec::new();
+            let cursor = Cursor::new(&mut buffer);
+            largest_icon.write_png(cursor).unwrap();
+            let bytes: &[u8] = &buffer;
             let img = RustImageData::from_bytes(bytes).unwrap();
-            Some(img)
+            Ok(img)
         } else {
-            None
+            Err(anyhow::Error::msg("Fail to load icns".to_string()))
         }
     }
 }
@@ -348,18 +353,19 @@ impl AppTrait for App {
 // generate test
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, time::Duration};
-
-    use crate::utils::mac::MacAppPath;
-
     use super::*;
+    use crate::utils::mac::MacAppPath;
+    use std::path::PathBuf;
 
     #[test]
     fn test_load_icon() {
-        let app = MacAppPath::new(PathBuf::from("/Applications/Visual Studio Code.app"))
+        let app = MacAppPath::new(PathBuf::from("/Applications/Google Chrome.app"))
+            // let app = MacAppPath::new(PathBuf::from("/Applications/Arc.app"))
+            // let app = MacAppPath::new(PathBuf::from("/Applications/Visual Studio Code.app"))
             .to_app()
             .unwrap();
-        app.load_icon();
+        let _ = app.load_icon().unwrap();
+        // icns.save_to_path("chrome.png").unwrap();
     }
 
     #[test]

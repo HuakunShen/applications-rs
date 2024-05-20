@@ -17,7 +17,7 @@ pub struct App {
 
 /// This trait specifies the methods that an app should implement, such as loading its logo
 pub trait AppTrait {
-    fn load_icon(&self) -> Option<RustImageData>;
+    fn load_icon(&self) -> Result<RustImageData>;
 }
 
 pub trait AppInfo {

@@ -239,7 +239,7 @@ impl MacAppPath {
         // use path filename without .app extension
         let name = self.0.file_stem()?.to_str()?.to_string();
         let is_ios_app = self.has_wrapper();
-        let icon_path = if is_ios_app {
+        let icon_file_name = if is_ios_app {
             let icons = info_plist.cf_bundle_icons;
             match icons {
                 Some(icons) => {
@@ -268,9 +268,15 @@ impl MacAppPath {
         let resources_path = contents_path.join("Resources");
         let macos_path = contents_path.join("MacOS");
 
-        let icon_path = match icon_path {
-            Some(icon_path) => {
-                let icon_path = resources_path.join(icon_path);
+        let icon_path = match icon_file_name {
+            Some(icon_file_name) => {
+                // if icon_file_name doesn't have an extension, add .icns
+                let icon_file_name = if icon_file_name.ends_with(".icns") {
+                    icon_file_name
+                } else {
+                    format!("{}.icns", icon_file_name)
+                };
+                let icon_path = resources_path.join(icon_file_name);
                 if icon_path.exists() {
                     Some(icon_path)
                 } else {
