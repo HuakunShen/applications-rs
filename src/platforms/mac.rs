@@ -88,9 +88,9 @@ pub fn find_app_icns(app_path: PathBuf) -> Option<PathBuf> {
         }
     }
     if all_icons.len() == 1 {
-        return Some(all_icons[0].clone());
+        Some(all_icons[0].clone())
     } else if all_icons.len() == 0 {
-        return None;
+        None
     } else {
         // more than one icon found
         // search for appicon in name, ignore case

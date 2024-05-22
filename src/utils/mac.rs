@@ -168,7 +168,7 @@ impl MacAppPath {
         let wrapper_path_str = wrapper_path.to_str()?;
         // search for .app in the wrapper
         let glob_path = format!("{}/*.app", wrapper_path_str);
-        for e in glob(&glob_path).expect("Failed to read glob pattern") {
+        if let Some(e) = glob(&glob_path).expect("Failed to read glob pattern").next() {
             return Some(e.unwrap());
         }
         None
