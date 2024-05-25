@@ -1,34 +1,36 @@
 use crate::common::App;
+use anyhow::Ok;
+use parselnk::Lnk;
 use std::path::PathBuf;
 // use walkdir::WalskDir;
 use anyhow::Result;
 use lnk::ShellLink;
-// use serde_derive::Deserialize;
-// use serde_derive::Serialize;
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
 // use std::ffi::OsString;
 // use std::os::windows::ffi::OsStringExt;
 use std::process::Command;
 use walkdir::WalkDir;
 // use winapi::um::winuser::{GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW};
 
-// #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct PowerShellLnkParseResult {
-//     #[serde(rename = "IconLocation")]
-//     pub icon_location: String,
-//     #[serde(rename = "Description")]
-//     pub description: String,
-//     #[serde(rename = "WorkingDirectory")]
-//     pub working_directory: String,
-//     #[serde(rename = "Arguments")]
-//     pub arguments: String,
-//     #[serde(rename = "Hotkey")]
-//     pub hotkey: String,
-//     #[serde(rename = "WindowStyle")]
-//     pub window_style: i64,
-//     #[serde(rename = "TargetPath")]
-//     pub target_path: String,
-// }
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PowerShellLnkParseResult {
+    #[serde(rename = "IconLocation")]
+    pub icon_location: String,
+    #[serde(rename = "Description")]
+    pub description: String,
+    #[serde(rename = "WorkingDirectory")]
+    pub working_directory: String,
+    #[serde(rename = "Arguments")]
+    pub arguments: String,
+    #[serde(rename = "Hotkey")]
+    pub hotkey: String,
+    #[serde(rename = "WindowStyle")]
+    pub window_style: i64,
+    #[serde(rename = "TargetPath")]
+    pub target_path: String,
+}
 
 // fn run_powershell_script(script: &str) -> Result<String> {
 //     let output = Command::new("powershell")
@@ -39,16 +41,88 @@ use walkdir::WalkDir;
 //     Ok(output)
 // }
 
-// pub fn parse_lnk_with_powershell(lnk_path: PathBuf) -> anyhow::Result<PowerShellLnkParseResult> {
-//     let script = format!(
-//         r#"
-//         "#,
-//         lnk_path.to_str().unwrap()
-//     );
-//     let output = run_powershell_script(&script)?;
-//     let result: PowerShellLnkParseResult = serde_json::from_str(&output)?;
-//     Ok(result)
-// }
+pub fn parse_lnk_with_powershell_1(lnk_path: PathBuf) -> anyhow::Result<PowerShellLnkParseResult> {
+    let lnk_path = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk";
+
+    let script = format!(
+        r#"
+        function Get-Shortcut {{
+            param (
+                [string]$Path
+            )
+            
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($Path)
+            
+            $properties = @{{
+                TargetPath = $shortcut.TargetPath
+                Arguments  = $shortcut.Arguments
+                Description = $shortcut.Description
+                Hotkey = $shortcut.Hotkey
+                IconLocation = $shortcut.IconLocation
+                WindowStyle = $shortcut.WindowStyle
+                WorkingDirectory = $shortcut.WorkingDirectory
+            }}
+            
+            return [PSCustomObject]$properties
+        }}
+
+        Get-Shortcut -Path "{}" | ConvertTo-Json
+    "#,
+        lnk_path
+    );
+
+    let output = Command::new("powershell")
+        .arg("-Command")
+        .arg(script)
+        .output()
+        .unwrap();
+    let output = String::from_utf8(output.stdout).unwrap();
+    // let result: PowerShellLnkParseResult = serde_json::from_str(&output).unwrap();
+
+    let json: PowerShellLnkParseResult = serde_json::from_str(&output.to_string())?;
+    Ok(json)
+}
+
+pub fn parse_lnk_with_powershell_2(lnk_path: PathBuf) -> anyhow::Result<App> {
+    let parsed_json = parse_lnk_with_powershell_1(lnk_path)?;
+    let target_path = PathBuf::from(parsed_json.target_path);
+    let desktop_path = if parsed_json.working_directory.len() == 0 {
+        PathBuf::from(parsed_json.working_directory)
+    } else {
+        target_path.parent().unwrap().to_path_buf()
+    };
+    let icon_path = if parsed_json.icon_location.len() == 0 {
+        None
+    } else {
+        Some(PathBuf::from(parsed_json.icon_location))
+    };
+    let name = if parsed_json.description.len() == 0 {
+        target_path
+            .parent()
+            .unwrap()
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+    } else {
+        let desc = parsed_json.description.clone();
+        if desc.starts_with("Runs ") {
+            // edge case for Tauri apps
+            desc[5..].to_string()
+        } else {
+            desc
+        }
+    };
+    let app = App {
+        name: name,
+        icon_path: icon_path,
+        app_path_exe: Some(target_path),
+        app_desktop_path: desktop_path,
+    };
+    Ok(app)
+}
 
 fn parse_lnk(path: PathBuf) -> Option<App> {
     let shortcut = ShellLink::open(&path).unwrap();
@@ -75,6 +149,45 @@ fn parse_lnk(path: PathBuf) -> Option<App> {
         name: path.file_stem().unwrap().to_str().unwrap().to_string(),
         icon_path,
         app_path_exe: exe,
+        app_desktop_path: work_dir,
+    })
+}
+
+fn parse_lnk2(path: PathBuf) -> Option<App> {
+    let lnk = Lnk::try_from(path.as_path()).unwrap();
+    let icon = lnk.string_data.icon_location;
+    if lnk.string_data.relative_path.is_none() {
+        return None;
+    }
+    let abs_path = path
+        .parent()
+        .unwrap()
+        .join(lnk.string_data.relative_path.unwrap());
+    let abs_path = std::fs::canonicalize(abs_path);
+    let exe_path = if abs_path.is_ok() {
+        abs_path.unwrap()
+    } else {
+        return None;
+    };
+    // let exe_path: PathBuf = match abs_path {
+    //     Ok(path) => path.into(),
+    //     Err(_) => return None,
+    // };
+
+    let work_dir = lnk.string_data.working_dir;
+    let work_dir = match work_dir {
+        Some(dir) => PathBuf::from(dir),
+        None => exe_path.parent().unwrap().to_path_buf(),
+    };
+
+    let name = match lnk.string_data.name_string {
+        Some(name) => name,
+        None => path.file_stem().unwrap().to_str().unwrap().to_string(),
+    };
+    Some(App {
+        name,
+        icon_path: icon,
+        app_path_exe: Some(exe_path),
         app_desktop_path: work_dir,
     })
 }
@@ -123,9 +236,15 @@ pub fn get_all_apps() -> Result<Vec<App>> {
             if path.is_file() {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
-                        if let Some(app) = parse_lnk(path.to_path_buf()) {
+                        // if let Some(app) = parse_lnk(path.to_path_buf()) {
+                        //     apps.push(app);
+                        // }
+                        if let Some(app) = parse_lnk2(path.to_path_buf()) {
                             apps.push(app);
                         }
+                        // if let Some(app) = parse_lnk_with_powershell_2(path.to_path_buf()).ok() {
+                        //     apps.push(app);
+                        // }
                     }
                 }
             }
@@ -153,15 +272,15 @@ mod tests {
     #[test]
     fn test_get_all_apps() {
         let apps = get_all_apps().unwrap();
-        // println!("{:#?}", apps.len());
+        println!("{:#?}", apps.len());
         assert!(!apps.is_empty());
     }
 
-    // #[test]
-    // fn test_parse_lnk_with_powershell() {
-    //     let path =
-    //         PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-    //     let result = parse_lnk_with_powershell(path).unwrap();
-    //     println!("{:#?}", result);
-    // }
+    #[test]
+    fn test_parse_lnk_with_powershell() {
+        let path =
+            PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+        let result = parse_lnk_with_powershell_1(path).unwrap();
+        println!("{:#?}", result);
+    }
 }

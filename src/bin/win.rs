@@ -1,43 +1,41 @@
-use std::collections::HashMap;
-use winreg::enums::*;
-use winreg::RegKey;
-
-fn get_installed_apps() -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let mut apps = HashMap::new();
-
-    // Paths to the Uninstall registry keys
-    let uninstall_keys = [
-        (HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
-    ];
-
-    for (hkey, path) in &uninstall_keys {
-        let reg_key = RegKey::predef(*hkey).open_subkey(path)?;
-
-        for subkey_name in reg_key.enum_keys().flatten() {
-            if let Ok(subkey) = reg_key.open_subkey(&subkey_name) {
-                if let Ok(display_name) = subkey.get_value::<String, &str>("DisplayName") {
-                    if let Ok(display_version) = subkey.get_value::<String, &str>("DisplayVersion") {
-                        apps.insert(display_name, display_version);
-                    } else {
-                        apps.insert(display_name, String::from("Unknown Version"));
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(apps)
-}
+use std::process::Command;
 
 fn main() {
-    match get_installed_apps() {
-        Ok(apps) => {
-            for (name, version) in &apps {
-                println!("{}: {}", name, version);
-            }
-            println!("{} apps found", apps.capacity());
-        }
-        Err(e) => eprintln!("Error: {}", e),
-    }
+    let lnk_path = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk";
+    
+    let script = format!(r#"
+        function Get-Shortcut {{
+            param (
+                [string]$Path
+            )
+            
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($Path)
+            
+            $properties = @{{
+                TargetPath = $shortcut.TargetPath
+                Arguments  = $shortcut.Arguments
+                Description = $shortcut.Description
+                Hotkey = $shortcut.Hotkey
+                IconLocation = $shortcut.IconLocation
+                WindowStyle = $shortcut.WindowStyle
+                WorkingDirectory = $shortcut.WorkingDirectory
+            }}
+            
+            return [PSCustomObject]$properties
+        }}
+
+        Get-Shortcut -Path "{}" | ConvertTo-Json
+    "#, lnk_path);
+
+
+    let output = Command::new("powershell")
+        .arg("-Command")
+        .arg(script)
+        .output()
+        .unwrap();
+    let output = String::from_utf8(output.stdout).unwrap();
+    // let result: PowerShellLnkParseResult = serde_json::from_str(&output).unwrap();
+    println!("{}", output.to_string());
+    
 }
