@@ -7,6 +7,7 @@ fn main() {
     let apps = ctx.get_all_apps();
     println!("Apps: {:#?}", apps);
 
+    // The following two methods are only available on macOS
     let frontmost_app = ctx.get_frontmost_application().unwrap();
     println!("Frontmost App: {:#?}", frontmost_app);
 
