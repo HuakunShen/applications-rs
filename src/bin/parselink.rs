@@ -1,0 +1,23 @@
+use parselnk::Lnk;
+use std::{convert::TryFrom, path::PathBuf};
+
+fn main() {
+    // let lnk_path = std::path::Path::new(r"c:\users\me\desktop\slack.lnk");
+    // let lnk = parselnk::Lnk::from(lnk_path).unwrap();
+    // let path = std::path::Path::new("c:\\users\\me\\shortcut.lnk");
+    let docker_lnk = PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+    let capcut_lnk = PathBuf::from("C:\\Users\\shenh\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\CapCut\\CapCut.lnk");
+
+    let lnk = Lnk::try_from(capcut_lnk.as_path()).unwrap();
+    // println!("{:#?}", lnk.link_info);
+    println!("working dir: {:#?}", lnk.working_dir());
+    let ext_data = lnk.extra_data;
+    // println!("Header: {:#?}", lnk.header);
+    println!("Icon Location: {:?}", lnk.string_data.icon_location);
+    println!("Icon Name String: {:?}", lnk.string_data.name_string);
+    println!("Icon Rel Path: {:?}", lnk.string_data.relative_path);
+    println!("Icon Working Dir: {:?}", lnk.string_data.working_dir);
+
+    // ext_data.
+    // println!("{:#?}", ext_data);
+}
