@@ -1,6 +1,6 @@
 [package]
 name = "applications"
-version = "0.2.1-alpha.1"
+version = "0.2.1-alpha.2"
 edition = "2021"
 description = "A cross-platform library for finding installed applications."
 license = "MIT"
@@ -18,7 +18,6 @@ serde_json = "1.0.116"
 thiserror = "1.0.58"
 walkdir = "2.4.0"
 anyhow = "1.0.83"
-installed = "0.1.0"
 lnk = "0.5.1"
 parselnk = "0.1.1"
 
