@@ -115,7 +115,19 @@ pub fn run_mdfind_to_get_app_list() -> Result<Vec<String>> {
         .arg("kMDItemKind == 'Application'")
         .output()?;
     let output = String::from_utf8(output.stdout)?;
-    let lines = output.split("\n").map(|line| line.to_string()).collect();
+    let lines1: Vec<String> = output.split("\n").map(|line| line.to_string()).collect();
+    let output = std::process::Command::new("mdfind")
+        .arg("kMDItemContentType == 'com.apple.application-bundle'")
+        .output()?;
+    let output = String::from_utf8(output.stdout)?;
+    let lines2: Vec<String> = output.split("\n").map(|line| line.to_string()).collect();
+    // turn lines1 and line2 into set, merge them, and turn them back into Vec
+    let lines: Vec<String> = lines1
+        .into_iter()
+        .chain(lines2.into_iter())
+        .collect::<std::collections::HashSet<String>>()
+        .into_iter()
+        .collect();
     Ok(lines)
 }
 
@@ -168,7 +180,10 @@ impl MacAppPath {
         let wrapper_path_str = wrapper_path.to_str()?;
         // search for .app in the wrapper
         let glob_path = format!("{}/*.app", wrapper_path_str);
-        if let Some(e) = glob(&glob_path).expect("Failed to read glob pattern").next() {
+        if let Some(e) = glob(&glob_path)
+            .expect("Failed to read glob pattern")
+            .next()
+        {
             return Some(e.unwrap());
         }
         None
