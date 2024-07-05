@@ -12,7 +12,7 @@
 //!
 //! ```ignore
 //! use applications::{AppInfoContext, AppInfo};
-//! 
+//!
 //! fn main() {
 //!     let mut ctx = AppInfoContext::new();
 //!     ctx.refresh_apps().unwrap(); // must refresh apps before getting them

@@ -1,11 +1,11 @@
 //! Common Data Structures
 use crate::utils::image::RustImageData;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
-use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct App {
@@ -37,4 +37,3 @@ pub struct AppInfoContext {
     pub cached_apps: Arc<Mutex<Vec<App>>>,
     pub refreshing: Arc<AtomicBool>,
 }
-
