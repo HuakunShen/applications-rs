@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use applications::{api, AppInfo, AppInfoContext};
+use std::path::PathBuf;
 
 fn main() {
     let mut ctx = AppInfoContext::new();

@@ -1,10 +1,10 @@
 use crate::common::{App, AppInfo, AppInfoContext};
 use anyhow::Result;
 use ini::ini;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
-use serde_derive::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 #[derive(Debug, PartialEq, Clone, Default, Eq, Hash, Serialize, Deserialize)]
@@ -14,19 +14,22 @@ pub struct AppIcon {
     dimensions: Option<u16>,
 }
 
-/// in case the icon in .desktop file cannot be parsed, use this function to manually find the icon
-/// example /usr/share/applications/microsoft-edge.desktop icon cannot be parsed with ini crate
-pub fn brute_force_find_icon(desktop_file_path: &Path) -> Result<Option<String>> {
-    // read the desktop file into lines and find the icon line
+pub fn brute_force_find_entry(
+    desktop_file_path: &Path,
+    entry_names: Vec<&str>,
+) -> Result<Option<String>> {
     let file = std::fs::File::open(desktop_file_path)?;
     let reader = BufReader::new(file);
 
     for line in reader.lines() {
         match line {
             Ok(line) => {
-                if line.starts_with("Icon=") || line.starts_with("icon=") {
-                    let icon = line.split("=").last().unwrap();
-                    return Ok(Some(icon.to_string()));
+                for entry_name in entry_names.iter() {
+                    if line.starts_with(entry_name) {
+                        // let entry = line.split("=").last().unwrap();
+                        let entry = line[entry_name.len() + 1..line.len()].trim();
+                        return Ok(Some(entry.to_string()));
+                    }
                 }
             }
             Err(_e) => {}
@@ -35,18 +38,51 @@ pub fn brute_force_find_icon(desktop_file_path: &Path) -> Result<Option<String>>
     Ok(None)
 }
 
-pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
+/// in case the icon in .desktop file cannot be parsed, use this function to manually find the icon
+/// example /usr/share/applications/microsoft-edge.desktop icon cannot be parsed with ini crate
+pub fn brute_force_find_icon(desktop_file_path: &Path) -> Result<Option<String>> {
+    // read the desktop file into lines and find the icon line
+    brute_force_find_entry(desktop_file_path, vec!["Icon", "icon"])
+}
+
+pub fn brute_force_find_exec(desktop_file_path: &Path) -> Result<Option<String>> {
+    brute_force_find_entry(desktop_file_path, vec!["Exec", "exec"])
+}
+
+/// return a tuple, first element is the app, second element is a boolean indicating if the desktop file has display
+/// Some apps like url handlers don't have display
+/// The display indicator is not reliable, default to true. It's false iff the desktop file contains `nodisplay=true`
+pub fn parse_desktop_file(desktop_file_path: PathBuf) -> (App, bool) {
     let mut app = App::default();
     app.app_desktop_path = desktop_file_path.clone();
     let desktop_file_path_str = desktop_file_path.to_str().unwrap();
     let map = ini!(desktop_file_path_str);
     let desktop_entry_exists = map.contains_key("desktop entry");
+    let mut display = true;
     if desktop_entry_exists {
         let desktop_entry = map["desktop entry"].clone();
-
+        if desktop_entry.contains_key("nodisplay") {
+            // I don't want apps like a url handler that doesn't have GUI
+            let nodisplay = desktop_entry["nodisplay"].clone();
+            match nodisplay {
+                Some(nodisplay) => {
+                    if nodisplay == "true" {
+                        display = false;
+                    }
+                }
+                None => {}
+            }
+        }
         if desktop_entry.contains_key("exec") {
             let exec = desktop_entry["exec"].clone();
             app.app_path_exe = Some(PathBuf::from(exec.unwrap()));
+        } else {
+            match brute_force_find_exec(&desktop_file_path) {
+                Ok(exec) => {
+                    app.app_path_exe = exec.map(|exec| PathBuf::from(exec));
+                }
+                Err(_) => {}
+            };
         }
         if desktop_entry.contains_key("icon") {
             let icon = desktop_entry["icon"].clone();
@@ -64,7 +100,7 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> App {
             app.name = name.unwrap();
         }
     }
-    return app;
+    return (app, display);
 }
 
 pub fn get_all_apps() -> Result<Vec<App>> {
@@ -84,7 +120,7 @@ pub fn get_all_apps() -> Result<Vec<App>> {
     search_dirs.insert("/var/lib/snapd/desktop/applications");
     let icons_db = find_all_app_icons()?;
     // for each dir, search for .desktop files
-    let mut apps: Vec<App> = Vec::new();
+    let mut apps: HashSet<App> = HashSet::new();
     for dir in search_dirs {
         let dir = PathBuf::from(dir);
         if !dir.exists() {
@@ -101,8 +137,11 @@ pub fn get_all_apps() -> Result<Vec<App>> {
             }
 
             if path.extension().unwrap() == "desktop" {
-                let mut app = parse_desktop_file(path.to_path_buf());
+                let (mut app, has_display) = parse_desktop_file(path.to_path_buf());
                 // fill icon path if .desktop file contains only icon name
+                if !has_display {
+                    continue;
+                }
                 if app.icon_path.is_some() {
                     let icon_path = app.icon_path.clone().unwrap();
                     if !icon_path.exists() {
@@ -113,14 +152,17 @@ pub fn get_all_apps() -> Result<Vec<App>> {
                                 let icon = icons.get(0).unwrap();
                                 app.icon_path = Some(icon.path.clone());
                             }
+                        } else {
+                            // path doesn't exist, set to None
+                            app.icon_path = None;
                         }
                     }
                 }
-                apps.push(app);
+                apps.insert(app);
             }
         }
     }
-    Ok(apps)
+    Ok(apps.iter().cloned().collect())
 }
 
 pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
@@ -270,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_parse_desktop_file() {
-        let app = parse_desktop_file(PathBuf::from(
+        let (app, display) = parse_desktop_file(PathBuf::from(
             "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
         ));
         println!("App: {:#?}", app);
@@ -299,6 +341,14 @@ mod tests {
         let desktop_file_path = PathBuf::from("/usr/share/applications/microsoft-edge.desktop");
         let icon = brute_force_find_icon(&desktop_file_path).unwrap();
         println!("Icon: {:#?}", icon);
+    }
+
+    #[test]
+    fn test_brute_force_find_exec() {
+        let desktop_file_path =
+            PathBuf::from("/var/lib/snapd/desktop/applications/firefox_firefox.desktop");
+        let exec = brute_force_find_exec(&desktop_file_path).unwrap();
+        println!("Exec: {:#?}", exec);
     }
 
     // #[test]

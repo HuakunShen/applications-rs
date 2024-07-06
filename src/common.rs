@@ -7,7 +7,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Eq, Hash)]
 pub struct App {
     pub name: String,
     pub icon_path: Option<PathBuf>,
