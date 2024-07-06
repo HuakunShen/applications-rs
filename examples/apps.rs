@@ -8,9 +8,9 @@ fn main() {
     println!("Apps: {:#?}", apps);
 
     // The following two methods are only available on macOS
-    let frontmost_app = ctx.get_frontmost_application().unwrap();
-    println!("Frontmost App: {:#?}", frontmost_app);
+    // let frontmost_app = ctx.get_frontmost_application().unwrap();
+    // println!("Frontmost App: {:#?}", frontmost_app);
 
-    let running_apps = ctx.get_running_apps();
-    println!("Running Apps: {:#?}", running_apps);
+    // let running_apps = ctx.get_running_apps();
+    // println!("Running Apps: {:#?}", running_apps);
 }
