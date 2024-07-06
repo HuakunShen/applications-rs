@@ -4,9 +4,10 @@ use ini::ini;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, prelude::*, BufReader};
 use std::path::{Path, PathBuf};
+use serde_derive::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-#[derive(Debug, PartialEq, Clone, Default, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Default, Eq, Hash, Serialize, Deserialize)]
 pub struct AppIcon {
     name: String,
     path: PathBuf,
@@ -175,11 +176,11 @@ pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
     let mut map: HashMap<String, Vec<AppIcon>> = HashMap::new();
     for icon in set {
         let name = icon.name.clone();
-        let name = name.split(".").next().unwrap().to_string();
-        if map.contains_key(&name) {
-            map.get_mut(&name).unwrap().push(icon);
+        let name = &name[0..name.len() - 4]; // remove .png
+        if map.contains_key(name) {
+            map.get_mut(name).unwrap().push(icon);
         } else {
-            map.insert(name, vec![icon]);
+            map.insert(name.to_string(), vec![icon]);
         }
     }
     // sort icons by dimensions
@@ -280,14 +281,15 @@ mod tests {
         let start = std::time::Instant::now();
         let icons_icons = find_all_app_icons().unwrap();
         let elapsed = start.elapsed();
+        println!("Icons: {:#?}", icons_icons);
         // println!("Icons: {:#?}", icons_icons.keys());
-        icons_icons.keys().into_iter().for_each(|key| {
-            if key.contains("DiskUtility") {
-                println!("Key: {:#?}", key);
-                let icons = icons_icons.get(key).unwrap();
-                println!("Icons: {:#?}", icons);
-            }
-        });
+        // icons_icons.keys().into_iter().for_each(|key| {
+        //     if key.contains("DiskUtility") {
+        //         println!("Key: {:#?}", key);
+        //         let icons = icons_icons.get(key).unwrap();
+        //         println!("Icons: {:#?}", icons);
+        //     }
+        // });
         println!("Elapsed: {:?}", elapsed);
         // println!("Icons Length: {:#?}", icons_icons.len());
     }

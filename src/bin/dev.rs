@@ -1,9 +1,10 @@
 use std::path::PathBuf;
-use applications::api;
+use applications::{api, AppInfo, AppInfoContext};
 
 fn main() {
-    //     let path =
-    //     PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-    // let result = parse_lnk_with_powershell(path).unwrap();
-    // println!("{:#?}", result);
+    let mut ctx = AppInfoContext::new();
+    ctx.refresh_apps().unwrap(); // must refresh apps before getting them
+
+    let apps = ctx.get_all_apps();
+    println!("Apps: {:#?}", apps);
 }
