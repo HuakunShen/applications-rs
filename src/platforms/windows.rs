@@ -180,10 +180,15 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
         None => exe_path.parent().unwrap().to_path_buf(),
     };
 
-    let name = match lnk.string_data.name_string {
-        Some(name) => name,
-        None => path.file_stem().unwrap().to_str().unwrap().to_string(),
-    };
+    // lnk.string_data.name_string could be wrong, e.g. GitKraken has "Unleash the"
+    // let name = match lnk.string_data.name_string {
+    //     Some(name) => name,
+    //     None => path.file_stem().unwrap().to_str().unwrap().to_string(),
+    // };
+    let name = path.file_stem().unwrap().to_str().unwrap().to_string();
+    // if name == "CLion" {
+    //     println!("{:#?}", path.clone());
+    // }
     Some(App {
         name,
         icon_path: icon,
