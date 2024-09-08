@@ -136,7 +136,7 @@ pub fn get_all_apps() -> Result<Vec<App>> {
                 continue;
             }
 
-            if path.extension().unwrap() == "desktop" {
+            if path.extension().unwrap() == "desktop" && path.is_file() {
                 let (mut app, has_display) = parse_desktop_file(path.to_path_buf());
                 // fill icon path if .desktop file contains only icon name
                 if !has_display {
