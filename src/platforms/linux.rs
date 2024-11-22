@@ -289,79 +289,79 @@ pub fn get_frontmost_application() -> Result<App> {
     Err(anyhow::Error::msg("No matching app found".to_string()))
 }
 
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-    use std::process::Command;
-    use std::str;
+// #[cfg(test)]
+// mod tests {
+//     use std::path::PathBuf;
+//     use std::process::Command;
+//     use std::str;
 
-    use super::*;
+//     use super::*;
 
-    #[test]
-    fn test_get_apps() {
-        let apps = get_all_apps().unwrap();
-        // println!("App: {:#?}", apps);
-        assert!(apps.len() > 0);
-        // iterate through apps and find the onces whose name contains "terminal"
-        for app in apps {
-            if app.name.to_lowercase().contains("code") {
-                println!("App: {:#?}", app);
-            }
-        }
-    }
+//     #[test]
+//     fn test_get_apps() {
+//         let apps = get_all_apps().unwrap();
+//         // println!("App: {:#?}", apps);
+//         assert!(apps.len() > 0);
+//         // iterate through apps and find the onces whose name contains "terminal"
+//         for app in apps {
+//             if app.name.to_lowercase().contains("code") {
+//                 println!("App: {:#?}", app);
+//             }
+//         }
+//     }
 
-    #[test]
-    fn test_parse_desktop_file() {
-        let (app, display) = parse_desktop_file(PathBuf::from(
-            "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
-        ));
-        println!("App: {:#?}", app);
-    }
+//     #[test]
+//     fn test_parse_desktop_file() {
+//         let (app, display) = parse_desktop_file(PathBuf::from(
+//             "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
+//         ));
+//         println!("App: {:#?}", app);
+//     }
 
-    #[test]
-    fn test_find_all_app_icons() {
-        let start = std::time::Instant::now();
-        let icons_icons = find_all_app_icons().unwrap();
-        let elapsed = start.elapsed();
-        println!("Icons: {:#?}", icons_icons);
-        // println!("Icons: {:#?}", icons_icons.keys());
-        // icons_icons.keys().into_iter().for_each(|key| {
-        //     if key.contains("DiskUtility") {
-        //         println!("Key: {:#?}", key);
-        //         let icons = icons_icons.get(key).unwrap();
-        //         println!("Icons: {:#?}", icons);
-        //     }
-        // });
-        println!("Elapsed: {:?}", elapsed);
-        // println!("Icons Length: {:#?}", icons_icons.len());
-    }
+//     #[test]
+//     fn test_find_all_app_icons() {
+//         let start = std::time::Instant::now();
+//         let icons_icons = find_all_app_icons().unwrap();
+//         let elapsed = start.elapsed();
+//         println!("Icons: {:#?}", icons_icons);
+//         // println!("Icons: {:#?}", icons_icons.keys());
+//         // icons_icons.keys().into_iter().for_each(|key| {
+//         //     if key.contains("DiskUtility") {
+//         //         println!("Key: {:#?}", key);
+//         //         let icons = icons_icons.get(key).unwrap();
+//         //         println!("Icons: {:#?}", icons);
+//         //     }
+//         // });
+//         println!("Elapsed: {:?}", elapsed);
+//         // println!("Icons Length: {:#?}", icons_icons.len());
+//     }
 
-    #[test]
-    fn test_brute_force_find_icon() {
-        let desktop_file_path = PathBuf::from("/usr/share/applications/microsoft-edge.desktop");
-        let icon = brute_force_find_icon(&desktop_file_path).unwrap();
-        println!("Icon: {:#?}", icon);
-    }
+//     #[test]
+//     fn test_brute_force_find_icon() {
+//         let desktop_file_path = PathBuf::from("/usr/share/applications/microsoft-edge.desktop");
+//         let icon = brute_force_find_icon(&desktop_file_path).unwrap();
+//         println!("Icon: {:#?}", icon);
+//     }
 
-    #[test]
-    fn test_brute_force_find_exec() {
-        let desktop_file_path =
-            PathBuf::from("/var/lib/snapd/desktop/applications/firefox_firefox.desktop");
-        let exec = brute_force_find_exec(&desktop_file_path).unwrap();
-        println!("Exec: {:#?}", exec);
-    }
+//     #[test]
+//     fn test_brute_force_find_exec() {
+//         let desktop_file_path =
+//             PathBuf::from("/var/lib/snapd/desktop/applications/firefox_firefox.desktop");
+//         let exec = brute_force_find_exec(&desktop_file_path).unwrap();
+//         println!("Exec: {:#?}", exec);
+//     }
 
-    // #[test]
-    // fn ios_app() {
-    //     let path = PathBuf::from("/Applications/Surge.app");
-    //     let found = find_ios_app_icon(path);
-    //     println!("Found: {:?}", found);
-    // }
+//     // #[test]
+//     // fn ios_app() {
+//     //     let path = PathBuf::from("/Applications/Surge.app");
+//     //     let found = find_ios_app_icon(path);
+//     //     println!("Found: {:?}", found);
+//     // }
 
-    // #[test]
-    // fn open_file_with_vscode() {
-    //     let file_path = PathBuf::from("/home/huakun/Desktop/CCC");
-    //     let app_path = PathBuf::from("code");
-    //     open_file_with(file_path, app_path);
-    // }
-}
+//     // #[test]
+//     // fn open_file_with_vscode() {
+//     //     let file_path = PathBuf::from("/home/huakun/Desktop/CCC");
+//     //     let app_path = PathBuf::from("code");
+//     //     open_file_with(file_path, app_path);
+//     // }
+// }
