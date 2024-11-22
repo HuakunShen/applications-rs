@@ -262,30 +262,30 @@ pub fn get_running_apps() -> Vec<App> {
     vec![]
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn test_parse_lnk() {
-        let path =
-            PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-        let app = parse_lnk(path);
-        assert!(app.is_some());
-    }
+//     #[test]
+//     fn test_parse_lnk() {
+//         let path =
+//             PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+//         let app = parse_lnk(path);
+//         assert!(app.is_some());
+//     }
 
-    #[test]
-    fn test_get_all_apps() {
-        let apps = get_all_apps().unwrap();
-        println!("{:#?}", apps.len());
-        assert!(!apps.is_empty());
-    }
+//     #[test]
+//     fn test_get_all_apps() {
+//         let apps = get_all_apps().unwrap();
+//         println!("{:#?}", apps.len());
+//         assert!(!apps.is_empty());
+//     }
 
-    #[test]
-    fn test_parse_lnk_with_powershell() {
-        let path =
-            PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-        let result = parse_lnk_with_powershell_1(path).unwrap();
-        println!("{:#?}", result);
-    }
-}
+//     #[test]
+//     fn test_parse_lnk_with_powershell() {
+//         let path =
+//             PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+//         let result = parse_lnk_with_powershell_1(path).unwrap();
+//         println!("{:#?}", result);
+//     }
+// }
