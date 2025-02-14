@@ -1,5 +1,6 @@
 use crate::common::App;
 use anyhow::Ok;
+use parselnk::string_data;
 use parselnk::Lnk;
 use std::path::PathBuf;
 // use walkdir::WalskDir;
@@ -153,16 +154,73 @@ fn parse_lnk(path: PathBuf) -> Option<App> {
     })
 }
 
-fn parse_lnk2(path: PathBuf) -> Option<App> {
-    let lnk = Lnk::try_from(path.as_path()).unwrap();
-    let icon = lnk.string_data.icon_location;
-    if lnk.string_data.relative_path.is_none() {
-        return None;
+/// Windows have path like this "%windir%\\system32\\mstsc.exe"
+/// This function will translate the path to the real path
+fn translate_path_alias(path: PathBuf) -> PathBuf {
+    let mut path_str = path.to_string_lossy().to_string();
+
+    // Common Windows environment variables
+    let env_vars = vec![
+        "%windir%",
+        "%SystemRoot%",
+        "%ProgramFiles%",
+        "%ProgramFiles(x86)%",
+        "%ProgramData%",
+        "%USERPROFILE%",
+        "%APPDATA%",
+        "%LOCALAPPDATA%",
+        "%PUBLIC%",
+        "%SystemDrive%",
+    ];
+
+    for var in env_vars {
+        if path_str.starts_with(var) {
+            let env_name = var.trim_matches('%');
+            if let std::result::Result::Ok(value) = std::env::var(env_name) {
+                path_str = path_str.replace(var, &value);
+                return PathBuf::from(path_str);
+            }
+        }
     }
-    let abs_path = path
-        .parent()
-        .unwrap()
-        .join(lnk.string_data.relative_path.unwrap());
+
+    path
+}
+
+fn parse_lnk2(path: PathBuf) -> Option<App> {
+    let Some(lnk) = Lnk::try_from(path.as_path()).ok() else {
+        return None;
+    };
+
+    let icon = lnk.string_data.icon_location.clone().map(|icon| {
+        if icon.to_string_lossy().starts_with("%") {
+            translate_path_alias(PathBuf::from(icon))
+        } else {
+            icon
+        }
+    });
+    let mut app_exe_path: Option<PathBuf> = lnk.string_data.relative_path.clone();
+
+    if lnk.string_data.relative_path.is_none() {
+        if let Some(icon_path) = icon.clone() {
+            // Clone here before using
+            let icon_path = PathBuf::from(icon_path);
+            // if icon_path ends with .exe, then it is the app_exe_path
+
+            if let Some(ext) = icon_path.extension() {
+                if ext == "exe" {
+                    app_exe_path = Some(translate_path_alias(icon_path));
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
+    }
+
+    let abs_path = path.parent().unwrap().join(app_exe_path.clone().unwrap());
     let abs_path = std::fs::canonicalize(abs_path);
     let exe_path = if abs_path.is_ok() {
         abs_path.unwrap()
@@ -176,7 +234,13 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
 
     let work_dir = lnk.string_data.working_dir;
     let work_dir = match work_dir {
-        Some(dir) => PathBuf::from(dir),
+        Some(dir) => {
+            if dir.to_string_lossy().starts_with("%") {
+                translate_path_alias(PathBuf::from(dir))
+            } else {
+                dir
+            }
+        }
         None => exe_path.parent().unwrap().to_path_buf(),
     };
 
@@ -192,7 +256,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     Some(App {
         name,
         icon_path: icon,
-        app_path_exe: Some(exe_path),
+        app_path_exe: app_exe_path,
         app_desktop_path: work_dir,
     })
 }
@@ -235,9 +299,15 @@ pub fn get_all_apps() -> Result<Vec<App>> {
 
     let scan_targets = vec![start_menu, start_menu2];
     let mut apps = vec![];
+    let mut idx = 0;
     for target in scan_targets {
         for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
+            idx = idx + 1;
+            // println!("idx={}; entry={}", idx, entry.path().display());
             let path = entry.path();
+            // if idx == 7 {
+            //     println!("{}", path.display());
+            // }
             if path.is_file() {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
@@ -262,30 +332,39 @@ pub fn get_running_apps() -> Vec<App> {
     vec![]
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parselnk;
 
-//     #[test]
-//     fn test_parse_lnk() {
-//         let path =
-//             PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-//         let app = parse_lnk(path);
-//         assert!(app.is_some());
-//     }
+    // #[test]
+    // fn test_parse_lnk() {
+    //     let path =
+    //         PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+    //     let app = parse_lnk(path);
+    //     assert!(app.is_some());
+    // }
 
-//     #[test]
-//     fn test_get_all_apps() {
-//         let apps = get_all_apps().unwrap();
-//         println!("{:#?}", apps.len());
-//         assert!(!apps.is_empty());
-//     }
+    #[test]
+    fn test_get_all_apps() {
+        let apps = get_all_apps().unwrap();
+        println!("{:#?}", apps.len());
+        println!("{:#?}", apps);
+        assert!(!apps.is_empty());
+    }
 
-//     #[test]
-//     fn test_parse_lnk_with_powershell() {
-//         let path =
-//             PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-//         let result = parse_lnk_with_powershell_1(path).unwrap();
-//         println!("{:#?}", result);
-//     }
-// }
+    #[test]
+    fn test_path_alias() {
+        let path = PathBuf::from("%windir%\\system32\\mstsc.exe");
+        let path = translate_path_alias(path);
+        assert_eq!(path.to_string_lossy(), "C:\\WINDOWS\\system32\\mstsc.exe");
+    }
+
+    // #[test]
+    // fn test_parse_lnk_with_powershell() {
+    //     let path =
+    //         PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
+    //     let result = parse_lnk_with_powershell_1(path).unwrap();
+    //     println!("{:#?}", result);
+    // }
+}
