@@ -1,4 +1,4 @@
-use crate::common::App;
+use crate::common::{App, SearchPath};
 use crate::utils::image::{RustImage, RustImageData};
 use crate::AppTrait;
 use anyhow::Ok;
@@ -17,6 +17,7 @@ use std::process::Command;
 use walkdir::WalkDir;
 // use winapi::um::winuser::{GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW};
 use image;
+use std::collections::HashSet;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -303,36 +304,47 @@ pub fn get_frontmost_application() -> Result<App> {
     // }
 }
 
-pub fn get_all_apps() -> Result<Vec<App>> {
-    let start_menu = PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs");
-    // get appdata roaming path
-    let appdata = PathBuf::from(std::env::var("APPDATA").unwrap());
-    // let start_menu2 = format!("{}\\Microsoft\\Windows\\Start Menu\\Programs", appdata);
-    let start_menu2 = appdata.join("Microsoft\\Windows\\Start Menu\\Programs");
+pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
+    // Create a HashSet of search paths starting with the default Windows paths
+    let mut search_paths: HashSet<SearchPath> = HashSet::new();
 
-    let scan_targets = vec![start_menu, start_menu2];
+    // Add default Windows paths with unlimited depth
+    let appdata_path = format!(
+        "{}\\Microsoft\\Windows\\Start Menu\\Programs",
+        std::env::var("APPDATA").unwrap()
+    );
+    let default_paths = vec![
+        "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
+        &appdata_path,
+    ];
+
+    for path in default_paths {
+        search_paths.insert(SearchPath::new(PathBuf::from(path), u8::MAX));
+    }
+
+    // Add extra search paths
+    for path in extra_search_paths {
+        search_paths.insert(path.clone());
+    }
+
     let mut apps = vec![];
-    let mut idx = 0;
-    for target in scan_targets {
-        for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
-            idx = idx + 1;
-            // println!("idx={}; entry={}", idx, entry.path().display());
+    for search_path in search_paths {
+        if !search_path.path.exists() {
+            continue;
+        }
+
+        for entry in WalkDir::new(search_path.path)
+            .max_depth(search_path.depth as usize)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             let path = entry.path();
-            // if idx == 7 {
-            //     println!("{}", path.display());
-            // }
             if path.is_file() {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
-                        // if let Some(app) = parse_lnk(path.to_path_buf()) {
-                        //     apps.push(app);
-                        // }
                         if let Some(app) = parse_lnk2(path.to_path_buf()) {
                             apps.push(app);
                         }
-                        // if let Some(app) = parse_lnk_with_powershell_2(path.to_path_buf()).ok() {
-                        //     apps.push(app);
-                        // }
                     }
                 }
             }
@@ -380,9 +392,10 @@ mod tests {
 
     #[test]
     fn test_get_all_apps() {
-        let apps = get_all_apps().unwrap();
-        println!("{:#?}", apps.len());
+        let extra_search_paths = Vec::new();
+        let apps = get_all_apps(&extra_search_paths).unwrap();
         println!("{:#?}", apps);
+        println!("{:#?}", apps.len());
         assert!(!apps.is_empty());
     }
 
