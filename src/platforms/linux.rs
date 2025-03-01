@@ -50,16 +50,15 @@ pub fn brute_force_find_exec(desktop_file_path: &Path) -> Result<Option<String>>
     brute_force_find_entry(desktop_file_path, vec!["Exec", "exec"])
 }
 
-fn clean_app_path(path: &str) -> String {
-    // Compile the regex to match %word patterns
-    let re = Regex::new(r"%\w+").unwrap();
-    let command = re.replace_all(path, "").trim().to_string();
+/// clean exec path by removing placeholder "%"" args
+/// like %u, %U, %F
+fn clean_exec_path(exec: &str) -> String {
+    let cleaned: Vec<&str> = exec
+        .split_whitespace()
+        .take_while(|s| !s.starts_with('%')) // Take everything up to first % parameter
+        .collect();
 
-    // Replace multiple whitespaces with a single space
-    let re_whitespace = Regex::new(r"\s+").unwrap();
-    let command = re_whitespace.replace_all(&command, " ").to_string();
-
-    command
+    cleaned.join(" ")
 }
 
 /// return a tuple, first element is the app, second element is a boolean indicating if the desktop file has display
@@ -86,17 +85,18 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> (App, bool) {
                 None => {}
             }
         }
-        if desktop_entry.contains_key("exec") {
-            let exec = desktop_entry["exec"].clone();
-            app.app_path_exe = Some(PathBuf::from(exec.unwrap()));
-        } else {
-            match brute_force_find_exec(&desktop_file_path) {
-                Ok(exec) => {
-                    app.app_path_exe = exec.map(|exec| PathBuf::from(exec));
-                }
-                Err(_) => {}
-            };
+
+        let raw_exec = desktop_entry
+            .get("exec")
+            .cloned()
+            // try to find it by brute if not found
+            .or_else(|| brute_force_find_exec(&desktop_file_path).ok())
+            .flatten();
+
+        if let Some(exec) = raw_exec {
+            app.app_path_exe = Some(PathBuf::from(clean_exec_path(&exec)));
         }
+
         if desktop_entry.contains_key("icon") {
             let icon = desktop_entry["icon"].clone();
             app.icon_path = Some(PathBuf::from(icon.unwrap()));
@@ -308,10 +308,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_clean_app_path() {
-        assert_eq!(clean_app_path("code %f").to_string(), "code");
-        assert_eq!(clean_app_path("code %f %F").to_string(), "code");
-        assert_eq!(clean_app_path("\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\" %u").to_string(), "\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\"");
+    fn test_clean_exec_path() {
+        assert_eq!(clean_exec_path("code %f").to_string(), "code");
+        assert_eq!(clean_exec_path("code %f %F").to_string(), "code");
+        assert_eq!(clean_exec_path("\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\" %u").to_string(), "\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\"");
     }
 
     #[test]
