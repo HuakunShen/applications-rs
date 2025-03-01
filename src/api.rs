@@ -1,4 +1,4 @@
-use crate::common::{App, AppInfo, AppInfoContext};
+use crate::common::{App, AppInfo, AppInfoContext, SearchPath};
 use crate::platforms::{get_all_apps, get_frontmost_application, get_running_apps, open_file_with};
 use anyhow::Result;
 use std::path::PathBuf;
@@ -7,10 +7,11 @@ use std::sync::{self, Arc, Mutex};
 use std::thread;
 
 impl AppInfoContext {
-    pub fn new() -> Self {
+    pub fn new(extra_search_paths: Vec<SearchPath>) -> Self {
         AppInfoContext {
             cached_apps: Arc::new(Mutex::new(vec![])),
             refreshing: Arc::new(AtomicBool::new(false)),
+            extra_search_paths,
         }
     }
 
@@ -32,7 +33,7 @@ impl AppInfo for AppInfoContext {
     /// Refresh cache of all apps, this is synchronous and could take a few seconds, especially on Mac
     fn refresh_apps(&mut self) -> Result<()> {
         self.refreshing.store(true, sync::atomic::Ordering::Relaxed);
-        let apps = get_all_apps()?;
+        let apps = get_all_apps(&self.extra_search_paths)?;
         *self.cached_apps.lock().unwrap() = apps;
         self.refreshing
             .store(false, sync::atomic::Ordering::Relaxed);
@@ -72,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_app_info() {
-        let mut ctx = AppInfoContext::new();
+        let mut ctx = AppInfoContext::new(vec![]);
         assert_eq!(ctx.get_all_apps().len(), 0);
         assert_eq!(ctx.is_refreshing(), false);
         ctx.refresh_apps().unwrap();
@@ -90,7 +91,7 @@ mod tests {
 
     #[test]
     fn get_all_apps() {
-        let mut ctx = AppInfoContext::new();
+        let mut ctx = AppInfoContext::new(vec![]);
         ctx.refresh_apps().unwrap();
         let apps = ctx.get_all_apps();
         println!("Apps Length: {:#?}", apps.len());

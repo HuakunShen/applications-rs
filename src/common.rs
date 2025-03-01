@@ -32,8 +32,21 @@ pub trait AppInfo {
     fn empty_cache(&mut self);
 }
 
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SearchPath {
+    pub path: PathBuf,
+    pub depth: u8,
+}
+
+impl SearchPath {
+    pub fn new(path: PathBuf, depth: u8) -> Self {
+        Self { path, depth }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct AppInfoContext {
     pub cached_apps: Arc<Mutex<Vec<App>>>,
     pub refreshing: Arc<AtomicBool>,
+    pub extra_search_paths: Vec<SearchPath>,
 }
