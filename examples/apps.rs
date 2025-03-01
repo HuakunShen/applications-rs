@@ -11,6 +11,9 @@ fn main() {
     let mut failed_count = 0;
     for app in apps {
         println!("App: {:#?}", app);
+        if app.icon_path.is_none() {
+            continue;
+        }
         let icon_result = app.load_icon();
         let icon = match icon_result {
             Ok(icon) => icon,
