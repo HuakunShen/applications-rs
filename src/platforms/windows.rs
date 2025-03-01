@@ -1,8 +1,11 @@
 use crate::common::App;
+use crate::utils::image::{RustImage, RustImageData};
+use crate::AppTrait;
 use anyhow::Ok;
 use parselnk::string_data;
 use parselnk::Lnk;
 use std::path::PathBuf;
+use windows_icons::get_icon_by_path;
 // use walkdir::WalskDir;
 use anyhow::Result;
 use lnk::ShellLink;
@@ -13,6 +16,7 @@ use serde_derive::Serialize;
 use std::process::Command;
 use walkdir::WalkDir;
 // use winapi::um::winuser::{GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW};
+use image;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -339,6 +343,26 @@ pub fn get_all_apps() -> Result<Vec<App>> {
 
 pub fn get_running_apps() -> Vec<App> {
     vec![]
+}
+
+impl AppTrait for App {
+    fn load_icon(&self) -> Result<RustImageData> {
+        let icon_path = match &self.icon_path {
+            Some(path) => Some(path.clone()),
+            None => self.app_path_exe.clone(),
+        };
+        match icon_path {
+            Some(path) => {
+                let icon_path_str = path.to_string_lossy();
+                let icon = get_icon_by_path(&icon_path_str)
+                    .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
+                Ok(RustImageData::from_dynamic_image(
+                    image::DynamicImage::ImageRgba8(icon),
+                ))
+            }
+            None => Err(anyhow::anyhow!("No icon path found for the app")),
+        }
+    }
 }
 
 #[cfg(test)]
