@@ -3,7 +3,7 @@ use applications::{AppInfo, AppInfoContext, AppTrait};
 
 fn main() {
     std::fs::create_dir_all("./icons").unwrap();
-    let mut ctx = AppInfoContext::new();
+    let mut ctx = AppInfoContext::new(vec![]);
     ctx.refresh_apps().unwrap(); // must refresh apps before getting them
 
     let apps = ctx.get_all_apps();

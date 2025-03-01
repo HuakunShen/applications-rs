@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn get_all_apps() {
-        let mut ctx = crate::common::AppInfoContext::new();
+        let mut ctx = crate::common::AppInfoContext::new(vec![]);
         ctx.refresh_apps().unwrap();
         let apps = ctx.get_all_apps();
         assert!(apps.len() > 0);

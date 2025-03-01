@@ -1,4 +1,4 @@
-use crate::common::{App, AppTrait};
+use crate::common::{App, AppTrait, SearchPath};
 use crate::utils::image::{RustImage, RustImageData};
 use crate::utils::mac::{
     run_mdfind_to_get_app_list, run_system_profiler_to_get_app_list, MacAppPath,
@@ -117,38 +117,6 @@ pub fn find_app_icns(app_path: PathBuf) -> Option<PathBuf> {
         }
     }
 }
-
-// #[deprecated]
-// pub fn get_apps() -> Vec<App> {
-//     let applications_folder = PathBuf::from("/Applications");
-//     // iterate this folder
-//     // for each .app file, create an App struct
-//     // return a vector of App structs
-//     // list all files in applications_folder
-//     let mut apps: Vec<App> = Vec::new();
-//     for entry in applications_folder
-//         .read_dir()
-//         .expect("Unable to read directory")
-//     {
-//         if let Ok(entry) = entry {
-//             let path = entry.path();
-//             if path.extension().is_none() {
-//                 continue;
-//             }
-//             if path.extension().unwrap() == "app" {
-//                 // search for .icns in Contents/Resources
-//                 let app = App {
-//                     name: path.file_name().unwrap().to_string_lossy().into_owned(),
-//                     icon_path: find_app_icns(path.clone()),
-//                     app_path_exe: path.clone(),
-//                     app_desktop_path: path.clone(),
-//                 };
-//                 apps.push(app);
-//             }
-//         }
-//     }
-//     apps
-// }
 
 /// On Mac, the `open` command has a optional `-a` flag to specify the app to open the file with.
 /// For example, opening `main.rs` with VSCode: `open -a "Visual Studio Code" main.rs`, where "Visual Studio Code.app" is the app folder name.
@@ -285,8 +253,54 @@ pub fn get_all_apps_mdfind() -> Result<Vec<App>> {
         .collect())
 }
 
-pub fn get_all_apps() -> Result<Vec<App>> {
-    Ok(get_all_apps_mdfind()?)
+/// Search apps in the given path iteratively by walking down the path, depth is the depth of the path
+pub fn search_apps(path: PathBuf, depth: u8) -> Result<Vec<App>> {
+    if depth == 0 {
+        return Ok(vec![]);
+    }
+
+    let mut apps = Vec::new();
+    // Set max_depth on WalkDir to limit traversal depth
+    let walker = WalkDir::new(path).max_depth(depth.into());
+
+    for entry in walker {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            // Check if the path has an extension and if it's an .app
+            if let Some(ext) = path.extension() {
+                if ext == "app" {
+                    if let Some(app) = MacAppPath::new(path.to_path_buf()).to_app() {
+                        apps.push(app);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(apps)
+}
+
+pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
+    let mut all_apps = get_all_apps_mdfind()?;
+    let mut seen_paths = all_apps
+        .iter()
+        .map(|app| app.app_desktop_path.clone())
+        .collect::<std::collections::HashSet<_>>();
+
+    for path in extra_search_paths {
+        let apps = search_apps(path.path.clone(), path.depth)?;
+        for app in apps {
+            if seen_paths.insert(app.app_desktop_path.clone()) {
+                all_apps.push(app);
+            }
+        }
+    }
+    Ok(all_apps)
 }
 
 impl From<MacSystemProfilterAppInfo> for Option<App> {
@@ -365,17 +379,6 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_load_icon() {
-        let app = MacAppPath::new(PathBuf::from("/Applications/Google Chrome.app"))
-            // let app = MacAppPath::new(PathBuf::from("/Applications/Arc.app"))
-            // let app = MacAppPath::new(PathBuf::from("/Applications/Visual Studio Code.app"))
-            .to_app()
-            .unwrap();
-        let _ = app.load_icon().unwrap();
-        // icns.save_to_path("chrome.png").unwrap();
-    }
-
-    #[test]
     fn test_get_running_apps() {
         let apps = get_running_apps();
         println!("Apps: {:#?}", apps);
@@ -390,14 +393,14 @@ mod tests {
     }
 
     #[test]
-    fn get_all_apps_sys_profiler() {
-        let apps = super::get_all_apps().unwrap();
+    fn get_all_apps() {
+        let apps = super::get_all_apps(&vec![]).unwrap();
         assert!(apps.len() > 0);
     }
 
     #[test]
     fn find_info_plist() {
-        let apps = get_all_apps().unwrap();
+        let apps = super::get_all_apps(&vec![]).unwrap();
         for app in apps {
             let path = app.app_desktop_path;
             let mac_app_path = MacAppPath::new(path.clone());
@@ -406,6 +409,12 @@ mod tests {
                 println!("Info.plist not found: {:?}", path);
             }
         }
+    }
+
+    #[test]
+    fn test_search_apps() {
+        let apps = search_apps(PathBuf::from("/Applications"), 1).unwrap();
+        println!("Apps: {:#?}", apps);
     }
 
     // #[test]
