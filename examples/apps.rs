@@ -20,8 +20,11 @@ fn main() {
                 continue;
             }
         };
-        icon.save_to_path(&format!("./icons/{}.png", app.name))
-            .unwrap();
+        if let Err(e) = icon.save_to_path(&format!("./icons/{}.png", app.name)) {
+            println!("Failed to save icon for {}: {}", app.name, e);
+            failed_count += 1;
+            continue;
+        }
     }
     println!("Total failed to get/save icons: {}", failed_count);
 }

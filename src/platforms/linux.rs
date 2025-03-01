@@ -1,10 +1,11 @@
 use crate::common::{App, AppInfo, AppInfoContext};
+use crate::utils::image::{RustImage, RustImageData};
+use crate::AppTrait;
 use anyhow::Result;
 use ini::ini;
-use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::io::{self, prelude::*, BufReader};
+use std::io::{prelude::*, BufReader};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -297,6 +298,22 @@ pub fn get_frontmost_application() -> Result<App> {
     }
 
     Err(anyhow::Error::msg("No matching app found".to_string()))
+}
+
+impl AppTrait for App {
+    fn load_icon(&self) -> Result<crate::utils::image::RustImageData> {
+        match &self.icon_path {
+            Some(icon_path) => {
+                let icon_path_str = icon_path
+                    .to_str()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to convert icon path to string"))?;
+                let image = crate::utils::image::RustImageData::from_path(icon_path_str)
+                    .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
+                Ok(image)
+            }
+            None => Err(anyhow::Error::msg("Icon path is None".to_string())),
+        }
+    }
 }
 
 #[cfg(test)]
