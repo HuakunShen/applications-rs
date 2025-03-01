@@ -320,8 +320,12 @@ pub fn get_running_apps() -> Vec<App> {
 impl AppTrait for App {
     fn load_icon(&self) -> Result<RustImageData> {
         if let Some(icon_path) = &self.icon_path {
-            let file = BufReader::new(File::open(icon_path).unwrap());
-            let icon_family = IconFamily::read(file).unwrap();
+            let file = File::open(icon_path)
+                .map_err(|e| anyhow::Error::msg(format!("Failed to open icon file: {}", e)))?;
+            let file = BufReader::new(file);
+            let icon_family = IconFamily::read(file)
+                .map_err(|e| anyhow::Error::msg(format!("Failed to read icon family: {}", e)))?;
+
             let mut largest_icon_type = IconType::Mask8_16x16;
             let mut largest_width = 0;
             for icon_type in icon_family.available_icons() {
@@ -335,17 +339,20 @@ impl AppTrait for App {
                     }
                 }
             }
-            // let largest_icon = icon_family.get_icon_with_type(largest_icon_type).unwrap();
-            // let bytes = largest_icon.data();
+
             let largest_icon = icon_family.get_icon_with_type(largest_icon_type)?;
             let mut buffer: Vec<u8> = Vec::new();
             let cursor = Cursor::new(&mut buffer);
-            largest_icon.write_png(cursor).unwrap();
+            largest_icon
+                .write_png(cursor)
+                .map_err(|e| anyhow::Error::msg(format!("Failed to write PNG: {}", e)))?;
+
             let bytes: &[u8] = &buffer;
-            let img = RustImageData::from_bytes(bytes).unwrap();
-            Ok(img)
+            RustImageData::from_bytes(bytes).map_err(|e| {
+                anyhow::Error::msg(format!("Failed to create image from bytes: {}", e))
+            })
         } else {
-            Err(anyhow::Error::msg("Fail to load icns".to_string()))
+            Err(anyhow::Error::msg("No icon path available"))
         }
     }
 }

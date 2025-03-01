@@ -1,8 +1,11 @@
 use crate::common::App;
+use crate::utils::image::{RustImage, RustImageData};
+use crate::AppTrait;
 use anyhow::Ok;
 use parselnk::string_data;
 use parselnk::Lnk;
 use std::path::PathBuf;
+use windows_icons::get_icon_by_path;
 // use walkdir::WalskDir;
 use anyhow::Result;
 use lnk::ShellLink;
@@ -13,6 +16,7 @@ use serde_derive::Serialize;
 use std::process::Command;
 use walkdir::WalkDir;
 // use winapi::um::winuser::{GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW};
+use image;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,6 +190,15 @@ fn translate_path_alias(path: PathBuf) -> PathBuf {
     path
 }
 
+fn strip_extended_prefix(path: PathBuf) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str.starts_with("\\\\?\\") {
+        PathBuf::from(&path_str[4..])
+    } else {
+        path
+    }
+}
+
 fn parse_lnk2(path: PathBuf) -> Option<App> {
     let Some(lnk) = Lnk::try_from(path.as_path()).ok() else {
         return None;
@@ -223,7 +236,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     let abs_path = path.parent().unwrap().join(app_exe_path.clone().unwrap());
     let abs_path = std::fs::canonicalize(abs_path);
     let exe_path = if abs_path.is_ok() {
-        abs_path.unwrap()
+        strip_extended_prefix(abs_path.unwrap())
     } else {
         return None;
     };
@@ -256,7 +269,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     Some(App {
         name,
         icon_path: icon,
-        app_path_exe: app_exe_path,
+        app_path_exe: Some(exe_path),
         app_desktop_path: work_dir,
     })
 }
@@ -330,6 +343,26 @@ pub fn get_all_apps() -> Result<Vec<App>> {
 
 pub fn get_running_apps() -> Vec<App> {
     vec![]
+}
+
+impl AppTrait for App {
+    fn load_icon(&self) -> Result<RustImageData> {
+        let icon_path = match &self.icon_path {
+            Some(path) => Some(path.clone()),
+            None => self.app_path_exe.clone(),
+        };
+        match icon_path {
+            Some(path) => {
+                let icon_path_str = path.to_string_lossy();
+                let icon = get_icon_by_path(&icon_path_str)
+                    .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
+                Ok(RustImageData::from_dynamic_image(
+                    image::DynamicImage::ImageRgba8(icon),
+                ))
+            }
+            None => Err(anyhow::anyhow!("No icon path found for the app")),
+        }
+    }
 }
 
 #[cfg(test)]
