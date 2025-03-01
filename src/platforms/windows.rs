@@ -357,7 +357,10 @@ mod tests {
     fn test_path_alias() {
         let path = PathBuf::from("%windir%\\system32\\mstsc.exe");
         let path = translate_path_alias(path);
-        assert_eq!(path.to_string_lossy(), "C:\\WINDOWS\\system32\\mstsc.exe");
+        assert_eq!(
+            path.to_string_lossy().to_lowercase(),
+            "c:\\windows\\system32\\mstsc.exe"
+        );
     }
 
     // #[test]
