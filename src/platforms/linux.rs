@@ -1,4 +1,4 @@
-use crate::common::{App, AppInfo, AppInfoContext};
+use crate::common::{App, AppInfo, AppInfoContext, SearchPath};
 use crate::utils::image::{RustImage, RustImageData};
 use crate::AppTrait;
 use anyhow::Result;
@@ -117,30 +117,45 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> (App, bool) {
     return (app, display);
 }
 
-pub fn get_all_apps() -> Result<Vec<App>> {
+pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
     // read XDG_DATA_DIRS env var
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
     // make a string sett from xdg_data_dirs
-    let mut search_dirs: HashSet<&str> = xdg_data_dirs.iter().cloned().collect();
-    search_dirs.insert("/usr/share/applications");
+    let mut search_dirs: HashSet<SearchPath> = xdg_data_dirs
+        .iter()
+        .cloned()
+        .collect::<HashSet<&str>>()
+        .into_iter()
+        .map(|s| SearchPath::new(PathBuf::from(s), 1))
+        .collect();
+
     // get home dir of current user
     let home_dir = std::env::var("HOME").unwrap();
     let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
-    search_dirs.insert(local_share_apps.to_str().unwrap());
-    search_dirs.insert("/usr/share/xsessions");
-    search_dirs.insert("/etc/xdg/autostart");
-    search_dirs.insert("/var/lib/snapd/desktop/applications");
+    let default_search_paths = vec![
+        "/usr/share/applications",
+        "/usr/share/xsessions",
+        "/etc/xdg/autostart",
+        "/var/lib/snapd/desktop/applications",
+        local_share_apps.to_str().unwrap(),
+    ];
+    for path in default_search_paths {
+        search_dirs.insert(SearchPath::new(PathBuf::from(path), 1));
+    }
+    // Add extra search paths
+    for path in extra_search_paths {
+        search_dirs.insert(path.clone());
+    }
     let icons_db = find_all_app_icons()?;
     // for each dir, search for .desktop files
     let mut apps: HashSet<App> = HashSet::new();
     for dir in search_dirs {
-        let dir = PathBuf::from(dir);
-        if !dir.exists() {
+        if !dir.path.exists() {
             continue;
         }
-        for entry in WalkDir::new(dir.clone()) {
+        for entry in WalkDir::new(dir.path.clone()).max_depth(dir.depth as usize) {
             if entry.is_err() {
                 continue;
             }
@@ -290,7 +305,7 @@ pub fn get_frontmost_application() -> Result<App> {
     let output = std::str::from_utf8(&output.stdout).unwrap();
     let app_name = output.split('"').nth(1).unwrap();
 
-    let apps = get_all_apps()?;
+    let apps = get_all_apps(&vec![])?;
     for app in apps {
         if app.name == app_name {
             return Ok(app);
@@ -320,7 +335,7 @@ impl AppTrait for App {
 mod tests {
     use std::path::PathBuf;
     use std::process::Command;
-    use std::str;
+    use std::{str, vec};
 
     use super::*;
 
@@ -333,8 +348,8 @@ mod tests {
 
     #[test]
     fn test_get_apps() {
-        let apps = get_all_apps().unwrap();
-        // println!("App: {:#?}", apps);
+        let apps = get_all_apps(&vec![]).unwrap();
+        println!("Number of Apps: {}", apps.len());
         assert!(apps.len() > 0);
         // iterate through apps and find the onces whose name contains "terminal"
         for app in apps {

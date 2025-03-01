@@ -32,7 +32,7 @@ pub trait AppInfo {
     fn empty_cache(&mut self);
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize, Hash)]
 pub struct SearchPath {
     pub path: PathBuf,
     pub depth: u8,
