@@ -49,6 +49,17 @@ pub fn brute_force_find_exec(desktop_file_path: &Path) -> Result<Option<String>>
     brute_force_find_entry(desktop_file_path, vec!["Exec", "exec"])
 }
 
+/// clean exec path by removing placeholder "%"" args
+/// like %u, %U, %F
+fn clean_exec_path(exec: &str) -> String {
+    let cleaned: Vec<&str> = exec
+        .split_whitespace()
+        .take_while(|s| !s.starts_with('%')) // Take everything up to first % parameter
+        .collect();
+
+    cleaned.join(" ")
+}
+
 /// return a tuple, first element is the app, second element is a boolean indicating if the desktop file has display
 /// Some apps like url handlers don't have display
 /// The display indicator is not reliable, default to true. It's false iff the desktop file contains `nodisplay=true`
@@ -73,17 +84,18 @@ pub fn parse_desktop_file(desktop_file_path: PathBuf) -> (App, bool) {
                 None => {}
             }
         }
-        if desktop_entry.contains_key("exec") {
-            let exec = desktop_entry["exec"].clone();
-            app.app_path_exe = Some(PathBuf::from(exec.unwrap()));
-        } else {
-            match brute_force_find_exec(&desktop_file_path) {
-                Ok(exec) => {
-                    app.app_path_exe = exec.map(|exec| PathBuf::from(exec));
-                }
-                Err(_) => {}
-            };
+
+        let raw_exec = desktop_entry
+            .get("exec")
+            .cloned()
+            // try to find it by brute if not found
+            .or_else(|| brute_force_find_exec(&desktop_file_path).ok())
+            .flatten();
+
+        if let Some(exec) = raw_exec {
+            app.app_path_exe = Some(PathBuf::from(clean_exec_path(&exec)));
         }
+
         if desktop_entry.contains_key("icon") {
             let icon = desktop_entry["icon"].clone();
             app.icon_path = Some(PathBuf::from(icon.unwrap()));
