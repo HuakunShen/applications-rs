@@ -50,7 +50,6 @@ pub fn brute_force_find_exec(desktop_file_path: &Path) -> Result<Option<String>>
     brute_force_find_entry(desktop_file_path, vec!["Exec", "exec"])
 }
 
-
 /// clean exec path by removing placeholder "%"" args
 /// like %u, %U, %F
 fn clean_exec_path(exec: &str) -> String {
@@ -60,18 +59,6 @@ fn clean_exec_path(exec: &str) -> String {
         .collect();
 
     cleaned.join(" ")
-}
-
-fn clean_app_path(path: &str) -> String {
-    // Compile the regex to match %word patterns
-    let re = Regex::new(r"%\w+").unwrap();
-    let command = re.replace_all(path, "").trim().to_string();
-
-    // Replace multiple whitespaces with a single space
-    let re_whitespace = Regex::new(r"\s+").unwrap();
-    let command = re_whitespace.replace_all(&command, " ").to_string();
-
-    command
 }
 
 /// return a tuple, first element is the app, second element is a boolean indicating if the desktop file has display
@@ -321,10 +308,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_clean_app_path() {
-        assert_eq!(clean_app_path("code %f").to_string(), "code");
-        assert_eq!(clean_app_path("code %f %F").to_string(), "code");
-        assert_eq!(clean_app_path("\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\" %u").to_string(), "\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\"");
+    fn test_clean_exec_path() {
+        assert_eq!(clean_exec_path("code %f").to_string(), "code");
+        assert_eq!(clean_exec_path("code %f %F").to_string(), "code");
+        assert_eq!(clean_exec_path("\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\" %u").to_string(), "\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\"");
     }
 
     #[test]
