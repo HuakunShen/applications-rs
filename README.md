@@ -1,4 +1,4 @@
-# apps-rs
+# applications-rs
 
 > This crate is used to
 >
@@ -9,8 +9,8 @@
 ## Platforms
 
 - [x] Mac
-- [ ] Linux
-- [ ] Windows
+- [x] Linux
+- [x] Windows
 
 ## Usage
 
