@@ -1,5 +1,5 @@
+use applications::{AppInfo, AppInfoContext};
 use std::process::Command;
-use applications::{AppInfoContext, AppInfo};
 
 fn main() {
     let lnk_path = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk";
