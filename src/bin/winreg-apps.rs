@@ -1,14 +1,14 @@
+use image::{ImageBuffer, Rgba};
 use std::ffi::OsString;
 use std::io;
+use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
+use winapi::shared::windef::HICON;
+use winapi::um::shellapi::ExtractIconW;
+use winapi::um::wingdi::{CreateDIBSection, GetDIBits, BITMAP, BITMAPINFO, BI_RGB, DIB_RGB_COLORS};
+use winapi::um::winuser::{DestroyIcon, GetIconInfo, ICONINFO};
 use winreg::enums::*;
 use winreg::RegKey;
-use winapi::um::shellapi::ExtractIconW;
-use winapi::shared::windef::HICON;
-use winapi::um::winuser::{DestroyIcon, GetIconInfo, ICONINFO};
-use winapi::um::wingdi::{BITMAP, CreateDIBSection, GetDIBits, BITMAPINFO, BI_RGB, DIB_RGB_COLORS};
-use image::{ImageBuffer, Rgba};
-use std::os::windows::ffi::OsStrExt;
 
 #[derive(Debug)]
 struct AppInfo {
@@ -25,12 +25,16 @@ fn get_installed_apps() -> io::Result<Vec<AppInfo>> {
     let uninstall_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 
     // Check 64-bit applications
-    if let Ok(uninstall_key) = hklm.open_subkey_with_flags(uninstall_path, KEY_READ | KEY_WOW64_64KEY) {
+    if let Ok(uninstall_key) =
+        hklm.open_subkey_with_flags(uninstall_path, KEY_READ | KEY_WOW64_64KEY)
+    {
         get_apps_from_key(&uninstall_key, &mut apps)?;
     }
 
     // Check 32-bit applications
-    if let Ok(uninstall_key) = hklm.open_subkey_with_flags(uninstall_path, KEY_READ | KEY_WOW64_32KEY) {
+    if let Ok(uninstall_key) =
+        hklm.open_subkey_with_flags(uninstall_path, KEY_READ | KEY_WOW64_32KEY)
+    {
         get_apps_from_key(&uninstall_key, &mut apps)?;
     }
 
@@ -58,13 +62,15 @@ fn get_apps_from_key(key: &RegKey, apps: &mut Vec<AppInfo>) -> io::Result<()> {
         };
 
         // Read InstallLocation or UninstallString
-        let path = subkey.get_value::<OsString, &str>("InstallLocation")
+        let path = subkey
+            .get_value::<OsString, &str>("InstallLocation")
             .or_else(|_| subkey.get_value::<OsString, &str>("UninstallString"))
             .ok()
             .map(PathBuf::from);
 
         // Read DisplayIcon for the icon path
-        let icon_path = subkey.get_value::<OsString, &str>("DisplayIcon")
+        let icon_path = subkey
+            .get_value::<OsString, &str>("DisplayIcon")
             .ok()
             .map(PathBuf::from);
 
@@ -93,12 +99,23 @@ fn save_icon_to_disk(icon: HICON, output_path: &PathBuf) -> io::Result<()> {
     unsafe {
         let mut icon_info: ICONINFO = std::mem::zeroed();
         if GetIconInfo(icon, &mut icon_info) == 0 {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to get icon info"));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get icon info",
+            ));
         }
 
         let mut bitmap: BITMAP = std::mem::zeroed();
-        if winapi::um::wingdi::GetObjectW(icon_info.hbmColor as *mut _, std::mem::size_of::<BITMAP>() as _, &mut bitmap as *mut _ as *mut _) == 0 {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to get bitmap info"));
+        if winapi::um::wingdi::GetObjectW(
+            icon_info.hbmColor as *mut _,
+            std::mem::size_of::<BITMAP>() as _,
+            &mut bitmap as *mut _ as *mut _,
+        ) == 0
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get bitmap info",
+            ));
         }
 
         let width = bitmap.bmWidth;
@@ -123,7 +140,16 @@ fn save_icon_to_disk(icon: HICON, output_path: &PathBuf) -> io::Result<()> {
         };
 
         let hdc = winapi::um::winuser::GetDC(std::ptr::null_mut());
-        if GetDIBits(hdc, icon_info.hbmColor, 0, height as _, pixels.as_mut_ptr() as *mut _, &bmi as *const _ as *mut _, DIB_RGB_COLORS) == 0 {
+        if GetDIBits(
+            hdc,
+            icon_info.hbmColor,
+            0,
+            height as _,
+            pixels.as_mut_ptr() as *mut _,
+            &bmi as *const _ as *mut _,
+            DIB_RGB_COLORS,
+        ) == 0
+        {
             return Err(io::Error::new(io::ErrorKind::Other, "Failed to get DIBits"));
         }
 
@@ -135,7 +161,8 @@ fn save_icon_to_disk(icon: HICON, output_path: &PathBuf) -> io::Result<()> {
         // Save as PNG using the `image` crate
         let img = ImageBuffer::<Rgba<u8>, _>::from_raw(width as u32, height as u32, pixels)
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create image buffer"))?;
-        img.save(output_path).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        img.save(output_path)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
         // Clean up
         winapi::um::winuser::ReleaseDC(std::ptr::null_mut(), hdc);
@@ -144,27 +171,87 @@ fn save_icon_to_disk(icon: HICON, output_path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
+fn sanitize_path(path: &str) -> String {
+    // Remove quotes and any command line arguments
+    path.trim_matches('"')
+        .split_whitespace()
+        .next()
+        .unwrap_or(path)
+        .to_string()
+}
+
+fn sanitize_filename(name: &str) -> String {
+    // Replace invalid filename characters with underscores
+    name.chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
+        .collect()
+}
+
 fn main() -> io::Result<()> {
+    // Create images directory if it doesn't exist
+    std::fs::create_dir_all("./images")?;
+
     let apps = get_installed_apps()?;
     println!("Installed Applications:");
     for (i, app) in apps.iter().enumerate() {
-        println!("{:3}. - {}: {:?}", i+1, app.name, app.path);
+        println!("{:3}. - {}: {:?}", i + 1, app.name, app.path);
 
-        // Example: Save the icon to disk
+        // Try to get icon from different sources
         if let Some(icon_path) = &app.icon_path {
-            if let Some(icon) = load_icon(&icon_path) {
-                let output_path = PathBuf::from(format!("./images/{}.png", app.name));
+            let sanitized_path = sanitize_path(&icon_path.to_string_lossy());
+            let path = PathBuf::from(&sanitized_path);
+            
+            // Try loading the icon
+            if let Some(icon) = load_icon(&path) {
+                let safe_filename = sanitize_filename(&app.name);
+                let output_path = PathBuf::from(format!("./images/{}.png", safe_filename));
+                
                 if let Err(e) = save_icon_to_disk(icon, &output_path) {
                     println!("Failed to save icon for {}: {}", app.name, e);
+                    
+                    // Try alternate path if available (exe file)
+                    if let Some(install_path) = &app.path {
+                        let exe_path = sanitize_path(&install_path.to_string_lossy());
+                        if let Some(alt_icon) = load_icon(&PathBuf::from(exe_path)) {
+                            if save_icon_to_disk(alt_icon, &output_path).is_ok() {
+                                println!("Successfully saved icon from alternate path for {}", app.name);
+                                continue;
+                            }
+                        }
+                    }
                 } else {
                     println!("Saved icon for {} to {:?}", app.name, output_path);
                 }
             } else {
+                // Try alternate path if icon loading failed
+                if let Some(install_path) = &app.path {
+                    let exe_path = sanitize_path(&install_path.to_string_lossy());
+                    if let Some(alt_icon) = load_icon(&PathBuf::from(exe_path)) {
+                        let safe_filename = sanitize_filename(&app.name);
+                        let output_path = PathBuf::from(format!("./images/{}.png", safe_filename));
+                        if save_icon_to_disk(alt_icon, &output_path).is_ok() {
+                            println!("Successfully saved icon from alternate path for {}", app.name);
+                            continue;
+                        }
+                    }
+                }
                 println!("Failed to load icon for {}", app.name);
             }
+        } else if let Some(install_path) = &app.path {
+            // Try to get icon from the installation path if no icon path is available
+            let exe_path = sanitize_path(&install_path.to_string_lossy());
+            if let Some(icon) = load_icon(&PathBuf::from(exe_path)) {
+                let safe_filename = sanitize_filename(&app.name);
+                let output_path = PathBuf::from(format!("./images/{}.png", safe_filename));
+                if save_icon_to_disk(icon, &output_path).is_ok() {
+                    println!("Successfully saved icon from installation path for {}", app.name);
+                    continue;
+                }
+            }
+            println!("No icon path found for {}", app.name);
+        } else {
+            println!("No icon path found for {}", app.name);
         }
-    } else {
-        println!("No icon path found for {}", app.name);
     }
     Ok(())
 }

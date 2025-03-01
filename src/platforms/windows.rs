@@ -186,6 +186,15 @@ fn translate_path_alias(path: PathBuf) -> PathBuf {
     path
 }
 
+fn strip_extended_prefix(path: PathBuf) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str.starts_with("\\\\?\\") {
+        PathBuf::from(&path_str[4..])
+    } else {
+        path
+    }
+}
+
 fn parse_lnk2(path: PathBuf) -> Option<App> {
     let Some(lnk) = Lnk::try_from(path.as_path()).ok() else {
         return None;
@@ -223,7 +232,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     let abs_path = path.parent().unwrap().join(app_exe_path.clone().unwrap());
     let abs_path = std::fs::canonicalize(abs_path);
     let exe_path = if abs_path.is_ok() {
-        abs_path.unwrap()
+        strip_extended_prefix(abs_path.unwrap())
     } else {
         return None;
     };
@@ -256,7 +265,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     Some(App {
         name,
         icon_path: icon,
-        app_path_exe: app_exe_path,
+        app_path_exe: Some(exe_path),
         app_desktop_path: work_dir,
     })
 }
