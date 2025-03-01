@@ -159,14 +159,11 @@ pub fn get_all_apps() -> Result<Vec<App>> {
                     let icon_path = app.icon_path.clone().unwrap();
                     if !icon_path.exists() {
                         // let icon_name = icon_path.file_name().unwrap().to_str().unwrap();
-                        if icons_db.contains_key(icon_path.to_str().unwrap()) {
-                            let icons = icons_db.get(icon_path.to_str().unwrap()).unwrap();
-                            if icons.len() > 0 {
-                                let icon = icons.get(0).unwrap();
+                        if let Some(icons) = icons_db.get(icon_path.to_str().unwrap()) {
+                            if let Some(icon) = icons.first() {
                                 app.icon_path = Some(icon.path.clone());
                             }
                         } else {
-                            // path doesn't exist, set to None
                             app.icon_path = None;
                         }
                     }
@@ -317,71 +314,25 @@ mod tests {
         assert_eq!(clean_app_path("\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\" %u").to_string(), "\"/home/hacker/.local/share/JetBrains/Toolbox/apps/intellij-idea-ultimate/bin/idea\"");
     }
 
-    // #[test]
-    // fn test_get_apps() {
-    //     let apps = get_all_apps().unwrap();
-    //     // println!("App: {:#?}", apps);
-    //     assert!(apps.len() > 0);
-    //     // iterate through apps and find the onces whose name contains "terminal"
-    //     for app in apps {
-    //         if app.name.to_lowercase().contains("code") {
-    //             println!("App: {:#?}", app);
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_get_apps() {
+        let apps = get_all_apps().unwrap();
+        // println!("App: {:#?}", apps);
+        assert!(apps.len() > 0);
+        // iterate through apps and find the onces whose name contains "terminal"
+        for app in apps {
+            if app.name.to_lowercase().contains("code") {
+                println!("App: {:#?}", app);
+            }
+        }
+    }
 
-    // #[test]
-    // fn test_parse_desktop_file() {
-    //     let (app, display) = parse_desktop_file(PathBuf::from(
-    //         "/var/lib/snapd/desktop/applications/gitkraken_gitkraken.desktop",
-    //     ));
-    //     println!("App: {:#?}", app);
-    // }
-
-    // #[test]
-    // fn test_find_all_app_icons() {
-    //     let start = std::time::Instant::now();
-    //     let icons_icons = find_all_app_icons().unwrap();
-    //     let elapsed = start.elapsed();
-    //     println!("Icons: {:#?}", icons_icons);
-    //     // println!("Icons: {:#?}", icons_icons.keys());
-    //     // icons_icons.keys().into_iter().for_each(|key| {
-    //     //     if key.contains("DiskUtility") {
-    //     //         println!("Key: {:#?}", key);
-    //     //         let icons = icons_icons.get(key).unwrap();
-    //     //         println!("Icons: {:#?}", icons);
-    //     //     }
-    //     // });
-    //     println!("Elapsed: {:?}", elapsed);
-    //     // println!("Icons Length: {:#?}", icons_icons.len());
-    // }
-
-    // #[test]
-    // fn test_brute_force_find_icon() {
-    //     let desktop_file_path = PathBuf::from("/usr/share/applications/microsoft-edge.desktop");
-    //     let icon = brute_force_find_icon(&desktop_file_path).unwrap();
-    //     println!("Icon: {:#?}", icon);
-    // }
-
-    // #[test]
-    // fn test_brute_force_find_exec() {
-    //     let desktop_file_path =
-    //         PathBuf::from("/var/lib/snapd/desktop/applications/firefox_firefox.desktop");
-    //     let exec = brute_force_find_exec(&desktop_file_path).unwrap();
-    //     println!("Exec: {:#?}", exec);
-    // }
-
-    // #[test]
-    // fn ios_app() {
-    //     let path = PathBuf::from("/Applications/Surge.app");
-    //     let found = find_ios_app_icon(path);
-    //     println!("Found: {:?}", found);
-    // }
-
-    // #[test]
-    // fn open_file_with_vscode() {
-    //     let file_path = PathBuf::from("/home/huakun/Desktop/CCC");
-    //     let app_path = PathBuf::from("code");
-    //     open_file_with(file_path, app_path);
-    // }
+    #[test]
+    fn test_find_all_app_icons() {
+        let start = std::time::Instant::now();
+        let icons_icons = find_all_app_icons().unwrap();
+        let elapsed = start.elapsed();
+        assert!(icons_icons.len() > 0);
+        println!("Elapsed: {:?}", elapsed);
+    }
 }
