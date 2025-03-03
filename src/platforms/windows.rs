@@ -202,6 +202,7 @@ fn strip_extended_prefix(path: PathBuf) -> PathBuf {
 
 fn parse_lnk2(path: PathBuf) -> Option<App> {
     let Some(lnk) = Lnk::try_from(path.as_path()).ok() else {
+        log::debug!("Failed to parse lnk with Lnk::try_from: {:?}", path);
         return None;
     };
 
@@ -224,13 +225,10 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
                 if ext == "exe" {
                     app_exe_path = Some(translate_path_alias(icon_path));
                 } else {
+                    log::debug!("");
                     return None;
                 }
-            } else {
-                return None;
             }
-        } else {
-            return None;
         }
     }
 
@@ -239,12 +237,10 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     let exe_path = if abs_path.is_ok() {
         strip_extended_prefix(abs_path.unwrap())
     } else {
+        log::debug!("abs_path IS NOT ok: {:?}", path);
+        log::error!("Failed to canonicalize path for {:?}: {:?}", path, abs_path.err().unwrap());
         return None;
     };
-    // let exe_path: PathBuf = match abs_path {
-    //     Ok(path) => path.into(),
-    //     Err(_) => return None,
-    // };
 
     let work_dir = lnk.string_data.working_dir;
     let work_dir = match work_dir {
@@ -258,15 +254,7 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
         None => exe_path.parent().unwrap().to_path_buf(),
     };
 
-    // lnk.string_data.name_string could be wrong, e.g. GitKraken has "Unleash the"
-    // let name = match lnk.string_data.name_string {
-    //     Some(name) => name,
-    //     None => path.file_stem().unwrap().to_str().unwrap().to_string(),
-    // };
     let name = path.file_stem().unwrap().to_str().unwrap().to_string();
-    // if name == "CLion" {
-    //     println!("{:#?}", path.clone());
-    // }
     Some(App {
         name,
         icon_path: icon,
@@ -342,9 +330,13 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
             if path.is_file() {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
+                        log::debug!("Found lnk: {:?}", path);
                         let result = App::from_path(path.to_path_buf());
-                        if result.is_ok() {
-                            apps.push(result.unwrap());
+                        if let Some(app) = result.ok() {
+                            log::debug!("Added app: {:?}", app);
+                            apps.push(app);
+                        } else {
+                            log::debug!("Failed to create App from path: {:?}", path);
                         }
                     }
                 }
@@ -382,6 +374,8 @@ impl AppTrait for App {
             if extension == "lnk" {
                 if let Some(app) = parse_lnk2(path.clone()) {
                     return Ok(app);
+                } else {
+                    log::debug!("Failed to parse lnk: {:?}", path);
                 }
             }
         }
