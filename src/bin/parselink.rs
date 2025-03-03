@@ -9,6 +9,8 @@ fn main() {
     log::set_max_level(log::LevelFilter::Debug);
 
     let path = PathBuf::from("C:\\Users\\shenh\\Downloads\\Chromium.lnk");
+    let path = PathBuf::from("C:\\Users\\shenh\\Downloads\\QuickLook (from scoop apps).lnk");
+    let path = PathBuf::from("C:\\Users\\shenh\\Downloads\\scrcpy.lnk");
     // let path = PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\Remote Desktop Connection.lnk");
     // let path = PathBuf::from("C:\\Users\\shenh\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Scoop Apps\\Chromium.lnk");
     // let Some(lnk) = Lnk::try_from(path.as_path()).ok() else {

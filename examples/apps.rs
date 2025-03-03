@@ -1,11 +1,11 @@
 use applications::{common::SearchPath, AppInfo, AppInfoContext, AppTrait};
-use log;
 use env_logger;
+use log;
 
 fn main() {
     // Initialize the logger
     env_logger::init();
-    
+
     // set log level to debug
     log::set_max_level(log::LevelFilter::Debug);
 
@@ -15,7 +15,7 @@ fn main() {
         1,
     )]);
     ctx.refresh_apps().unwrap(); // must refresh apps before getting them
-    
+
     let apps = ctx.get_all_apps();
     // println!("Apps: {:#?}", apps);
 }

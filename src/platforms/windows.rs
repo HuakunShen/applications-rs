@@ -423,14 +423,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_lnk() {
-        let path = PathBuf::from("C:\\Users\\shenh\\Downloads\\Chromium.lnk");
-        let app = parse_lnk2(path);
-        assert!(app.is_some());
-        println!("{:#?}", app.unwrap());
-    }
-
-    #[test]
     fn test_get_all_apps() {
         let extra_search_paths = Vec::new();
         let apps = get_all_apps(&extra_search_paths).unwrap();
