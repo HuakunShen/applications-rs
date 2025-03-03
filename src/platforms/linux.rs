@@ -337,7 +337,7 @@ impl AppTrait for App {
 }
 
 /// path should be a .png file, Linux icon can also be a .svg file, don't use this function in that case
-pub fn load_icon(path: PathBuf) -> Result<RustImageData> {
+pub fn load_icon(path: &Path) -> Result<RustImageData> {
     // if path is a .svg file
     if path.extension().unwrap() == "svg" {
         return Err(anyhow::anyhow!("SVG files are not supported on Linux yet"));
