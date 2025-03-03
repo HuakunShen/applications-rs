@@ -4,7 +4,7 @@ use crate::AppTrait;
 use anyhow::Ok;
 use parselnk::string_data;
 use parselnk::Lnk;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use windows_icons::get_icon_by_path;
 // use walkdir::WalskDir;
 use anyhow::Result;
@@ -392,7 +392,7 @@ impl AppTrait for App {
     }
 }
 
-pub fn load_icon(path: PathBuf) -> Result<RustImageData> {
+pub fn load_icon(path: &Path) -> Result<RustImageData> {
     let icon_path_str = path.to_string_lossy();
     let icon = get_icon_by_path(&icon_path_str)
         .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
