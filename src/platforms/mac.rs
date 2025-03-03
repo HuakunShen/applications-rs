@@ -274,7 +274,7 @@ pub fn search_apps(path: PathBuf, depth: u8) -> Result<Vec<App>> {
             // Check if the path has an extension and if it's an .app
             if let Some(ext) = path.extension() {
                 if ext == "app" {
-                    if let Ok(app) = App::from_path(path.to_path_buf()) {
+                    if let Ok(app) = App::from_path(&path) {
                         apps.push(app);
                     }
                 }
@@ -321,7 +321,7 @@ pub fn get_running_apps() -> Vec<App> {
             let bundle_url: id = msg_send![app, bundleURL];
             let path: id = msg_send![bundle_url, path];
             let path_str = nsstring_to_string(path).unwrap();
-            if let Ok(app) = App::from_path(PathBuf::from(path_str)) {
+            if let Ok(app) = App::from_path(&PathBuf::from(path_str)) {
                 apps.push(app);
             }
             // let app_path = MacAppPath::new(PathBuf::from(path_str));
@@ -346,7 +346,7 @@ pub fn load_icon(path: &Path) -> Result<RustImageData> {
     let file_extension = path.extension().unwrap_or_default();
     if file_type.is_dir() {
         // it's a .app folder
-        let app = App::from_path(path.to_path_buf())
+        let app = App::from_path(path)
             .map_err(|e| anyhow::Error::msg(format!("Failed to create App from path: {}", e)))?;
         app.load_icon()
     } else if file_extension == "icns" {
@@ -393,7 +393,7 @@ impl AppTrait for App {
         }
     }
 
-    fn from_path(path: PathBuf) -> Result<Self> {
+    fn from_path(path: &Path) -> Result<Self> {
         MacAppPath::new(path.to_path_buf())
             .to_app()
             .ok_or(anyhow::Error::msg("Failed to create App from path"))
