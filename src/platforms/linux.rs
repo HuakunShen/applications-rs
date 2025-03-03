@@ -65,9 +65,9 @@ fn clean_exec_path(exec: &str) -> String {
 /// return a tuple, first element is the app, second element is a boolean indicating if the desktop file has display
 /// Some apps like url handlers don't have display
 /// The display indicator is not reliable, default to true. It's false iff the desktop file contains `nodisplay=true`
-pub fn parse_desktop_file(desktop_file_path: PathBuf) -> (App, bool) {
+pub fn parse_desktop_file(desktop_file_path: &Path) -> (App, bool) {
     let mut app = App::default();
-    app.app_desktop_path = desktop_file_path.clone();
+    app.app_desktop_path = desktop_file_path.to_path_buf();
     let desktop_file_path_str = desktop_file_path.to_str().unwrap();
     let map = ini!(desktop_file_path_str);
     let desktop_entry_exists = map.contains_key("desktop entry");
@@ -166,7 +166,7 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
             }
 
             if path.extension().unwrap() == "desktop" && path.is_file() {
-                let (mut app, has_display) = parse_desktop_file(path.to_path_buf());
+                let (mut app, has_display) = parse_desktop_file(&path);
                 // fill icon path if .desktop file contains only icon name
                 if !has_display {
                     continue;
@@ -330,7 +330,7 @@ impl AppTrait for App {
         }
     }
 
-    fn from_path(path: PathBuf) -> Result<Self> {
+    fn from_path(path: &Path) -> Result<Self> {
         let (app, _) = parse_desktop_file(path);
         Ok(app)
     }
