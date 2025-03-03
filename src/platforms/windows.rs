@@ -396,7 +396,9 @@ pub fn load_icon(path: PathBuf) -> Result<RustImageData> {
     let icon_path_str = path.to_string_lossy();
     let icon = get_icon_by_path(&icon_path_str)
         .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
-    Ok(RustImageData::from_dynamic_image(image::DynamicImage::ImageRgba8(icon)))
+    Ok(RustImageData::from_dynamic_image(
+        image::DynamicImage::ImageRgba8(icon),
+    ))
 }
 
 #[cfg(test)]

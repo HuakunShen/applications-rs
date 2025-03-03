@@ -16,7 +16,10 @@ pub struct App {
 }
 
 /// This trait specifies the methods that an app should implement, such as loading its logo
-pub trait AppTrait where Self: Sized {
+pub trait AppTrait
+where
+    Self: Sized,
+{
     fn load_icon(&self) -> Result<RustImageData>;
     fn from_path(path: PathBuf) -> Result<Self>;
 }
