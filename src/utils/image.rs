@@ -1,6 +1,8 @@
 // Taken from https://github.com/ChurchTao/clipboard-rs/blob/master/src/common.rs
 use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
 use std::io::Cursor;
+
+#[derive(Debug)]
 pub struct RustImageData {
     width: u32,
     height: u32,

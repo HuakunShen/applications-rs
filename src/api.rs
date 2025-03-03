@@ -1,4 +1,4 @@
-use crate::common::{App, AppInfo, AppInfoContext, SearchPath, AppTrait};
+use crate::common::{App, AppInfo, AppInfoContext, AppTrait, SearchPath};
 use crate::platforms::{get_all_apps, get_frontmost_application, get_running_apps, open_file_with};
 use anyhow::Result;
 use std::path::PathBuf;
@@ -67,9 +67,9 @@ impl AppInfo for AppInfoContext {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread, time::Duration};
     use crate::common::{AppInfo, AppInfoContext, AppTrait};
     use crate::utils::image::RustImage;
+    use std::{thread, time::Duration};
 
     #[test]
     fn test_app_info() {

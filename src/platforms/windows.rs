@@ -4,7 +4,7 @@ use crate::AppTrait;
 use anyhow::Ok;
 use parselnk::string_data;
 use parselnk::Lnk;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use windows_icons::get_icon_by_path;
 // use walkdir::WalskDir;
 use anyhow::Result;
@@ -342,8 +342,9 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
             if path.is_file() {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
-                        if let Some(app) = parse_lnk2(path.to_path_buf()) {
-                            apps.push(app);
+                        let result = App::from_path(path.to_path_buf());
+                        if result.is_ok() {
+                            apps.push(result.unwrap());
                         }
                     }
                 }
@@ -375,12 +376,34 @@ impl AppTrait for App {
             None => Err(anyhow::anyhow!("No icon path found for the app")),
         }
     }
+
+    fn from_path(path: PathBuf) -> Result<Self> {
+        if let Some(extension) = path.extension() {
+            if extension == "lnk" {
+                if let Some(app) = parse_lnk2(path.clone()) {
+                    return Ok(app);
+                }
+            }
+        }
+        Err(anyhow::anyhow!(
+            "Failed to create App from path: {:?}",
+            path
+        ))
+    }
+}
+
+pub fn load_icon(path: &Path) -> Result<RustImageData> {
+    let icon_path_str = path.to_string_lossy();
+    let icon = get_icon_by_path(&icon_path_str)
+        .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
+    Ok(RustImageData::from_dynamic_image(
+        image::DynamicImage::ImageRgba8(icon),
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parselnk;
 
     // #[test]
     // fn test_parse_lnk() {

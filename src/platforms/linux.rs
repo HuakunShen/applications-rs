@@ -329,6 +329,22 @@ impl AppTrait for App {
             None => Err(anyhow::Error::msg("Icon path is None".to_string())),
         }
     }
+
+    fn from_path(path: PathBuf) -> Result<Self> {
+        let (app, _) = parse_desktop_file(path);
+        Ok(app)
+    }
+}
+
+/// path should be a .png file, Linux icon can also be a .svg file, don't use this function in that case
+pub fn load_icon(path: &Path) -> Result<RustImageData> {
+    // if path is a .svg file
+    if path.extension().unwrap() == "svg" {
+        return Err(anyhow::anyhow!("SVG files are not supported on Linux yet"));
+    }
+    let image = RustImageData::from_path(path.to_str().unwrap())
+        .map_err(|e| anyhow::anyhow!("Failed to get icon: {}", e))?;
+    Ok(image)
 }
 
 #[cfg(test)]
