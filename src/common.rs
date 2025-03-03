@@ -3,7 +3,7 @@ use crate::utils::image::RustImageData;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
@@ -21,7 +21,7 @@ where
     Self: Sized,
 {
     fn load_icon(&self) -> Result<RustImageData>;
-    fn from_path(path: PathBuf) -> Result<Self>;
+    fn from_path(path: &Path) -> Result<Self>;
 }
 
 pub trait AppInfo {

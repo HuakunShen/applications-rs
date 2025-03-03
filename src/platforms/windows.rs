@@ -162,25 +162,25 @@ fn parse_lnk(path: PathBuf) -> Option<App> {
 /// Windows have path like this "%windir%\\system32\\mstsc.exe"
 /// This function will translate the path to the real path
 fn translate_path_alias(path: PathBuf) -> PathBuf {
-    let mut path_str = path.to_string_lossy().to_string();
+    let mut path_str = path.to_string_lossy().to_string().to_lowercase();
 
     // Common Windows environment variables
     let env_vars = vec![
         "%windir%",
-        "%SystemRoot%",
-        "%ProgramFiles%",
-        "%ProgramFiles(x86)%",
-        "%ProgramData%",
-        "%USERPROFILE%",
-        "%APPDATA%",
-        "%LOCALAPPDATA%",
-        "%PUBLIC%",
-        "%SystemDrive%",
+        "%systemroot%",
+        "%programfiles%",
+        "%programfiles(x86)%",
+        "%programdata%",
+        "%userprofile%",
+        "%appdata%",
+        "%localappdata%",
+        "%public%",
+        "%systemdrive%",
     ];
 
     for var in env_vars {
         if path_str.starts_with(var) {
-            let env_name = var.trim_matches('%');
+            let env_name = var.trim_matches('%').to_uppercase();
             if let std::result::Result::Ok(value) = std::env::var(env_name) {
                 path_str = path_str.replace(var, &value);
                 return PathBuf::from(path_str);
@@ -213,9 +213,15 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
             icon
         }
     });
-    let mut app_exe_path: Option<PathBuf> = lnk.string_data.relative_path.clone();
+    let mut app_exe_path: Option<PathBuf> = match lnk.link_info.local_base_path {
+        Some(path) => Some(PathBuf::from(path)),
+        None => lnk.string_data.relative_path.clone(),
+    };
+    if app_exe_path.is_none() {
+        app_exe_path = lnk.string_data.relative_path.clone();
+    }
 
-    if lnk.string_data.relative_path.is_none() {
+    if app_exe_path.is_none() {
         if let Some(icon_path) = icon.clone() {
             // Clone here before using
             let icon_path = PathBuf::from(icon_path);
@@ -231,14 +237,31 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
             }
         }
     }
+    let Some(app_exe_path) = app_exe_path else {
+        log::debug!("app_exe_path is None");
+        return None;
+    };
+    let app_exe_path = translate_path_alias(app_exe_path);
+    let exe_abs_path = match app_exe_path.exists() {
+        true => app_exe_path,
+        false => path.parent().unwrap().join(&app_exe_path),
+    };
+    log::debug!("exe_abs_path: {:?}", exe_abs_path);
+    if !exe_abs_path.exists() {
+        log::warn!("exe_abs_path does not exist: {:?}", exe_abs_path);
+        return None;
+    }
 
-    let abs_path = path.parent().unwrap().join(app_exe_path.clone().unwrap());
-    let abs_path = std::fs::canonicalize(abs_path);
-    let exe_path = if abs_path.is_ok() {
-        strip_extended_prefix(abs_path.unwrap())
+    let exe_abs_path = std::fs::canonicalize(exe_abs_path);
+    let exe_path = if exe_abs_path.is_ok() {
+        strip_extended_prefix(exe_abs_path.unwrap())
     } else {
-        log::debug!("abs_path IS NOT ok: {:?}", path);
-        log::error!("Failed to canonicalize path for {:?}: {:?}", path, abs_path.err().unwrap());
+        log::debug!("exe_abs_path IS NOT ok: {:?}", path);
+        log::error!(
+            "Failed to canonicalize path for {:?}: {:?}",
+            path,
+            exe_abs_path.err().unwrap()
+        );
         return None;
     };
 
@@ -331,7 +354,7 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
                 if let Some(extension) = path.extension() {
                     if extension == "lnk" {
                         log::debug!("Found lnk: {:?}", path);
-                        let result = App::from_path(path.to_path_buf());
+                        let result = App::from_path(&path);
                         if let Some(app) = result.ok() {
                             log::debug!("Added app: {:?}", app);
                             apps.push(app);
@@ -369,10 +392,10 @@ impl AppTrait for App {
         }
     }
 
-    fn from_path(path: PathBuf) -> Result<Self> {
+    fn from_path(path: &Path) -> Result<Self> {
         if let Some(extension) = path.extension() {
             if extension == "lnk" {
-                if let Some(app) = parse_lnk2(path.clone()) {
+                if let Some(app) = parse_lnk2(path.to_path_buf()) {
                     return Ok(app);
                 } else {
                     log::debug!("Failed to parse lnk: {:?}", path);
@@ -399,13 +422,13 @@ pub fn load_icon(path: &Path) -> Result<RustImageData> {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_parse_lnk() {
-    //     let path =
-    //         PathBuf::from("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Docker Desktop.lnk");
-    //     let app = parse_lnk(path);
-    //     assert!(app.is_some());
-    // }
+    #[test]
+    fn test_parse_lnk() {
+        let path = PathBuf::from("C:\\Users\\shenh\\Downloads\\Chromium.lnk");
+        let app = parse_lnk2(path);
+        assert!(app.is_some());
+        println!("{:#?}", app.unwrap());
+    }
 
     #[test]
     fn test_get_all_apps() {
