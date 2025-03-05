@@ -15,10 +15,13 @@
 ## Usage
 
 ```rust
-use applications::{AppInfoContext, AppInfo};
+use applications::{common::SearchPath, AppInfo, AppInfoContext, AppTrait};
 
 fn main() {
-    let mut ctx = AppInfoContext::new();
+    let mut ctx = AppInfoContext::new(vec![SearchPath::new(
+        std::path::PathBuf::from("/home/user/..."),
+        1,
+    )]);
     ctx.refresh_apps().unwrap(); // must refresh apps before getting them
 
     let apps = ctx.get_all_apps();
