@@ -117,33 +117,39 @@ pub fn parse_desktop_file(desktop_file_path: &Path) -> (App, bool) {
     return (app, display);
 }
 
-pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
+pub fn get_default_search_paths() -> Vec<SearchPath> {
+    let mut search_paths = vec![];
     // read XDG_DATA_DIRS env var
     let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
     // make a string sett from xdg_data_dirs
-    let mut search_dirs: HashSet<SearchPath> = xdg_data_dirs
-        .iter()
-        .cloned()
-        .collect::<HashSet<&str>>()
-        .into_iter()
-        .map(|s| SearchPath::new(PathBuf::from(s), 1))
-        .collect();
-
-    // get home dir of current user
     let home_dir = std::env::var("HOME").unwrap();
     let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
-    let default_search_paths = vec![
+    let mut default_search_paths = vec![
         "/usr/share/applications",
         "/usr/share/xsessions",
         "/etc/xdg/autostart",
         "/var/lib/snapd/desktop/applications",
         local_share_apps.to_str().unwrap(),
     ];
-    for path in default_search_paths {
-        search_dirs.insert(SearchPath::new(PathBuf::from(path), 1));
+    for path in xdg_data_dirs {
+        default_search_paths.push(path);
     }
+
+    for path in default_search_paths {
+        search_paths.push(SearchPath::new(PathBuf::from(path), 1));
+    }
+    search_paths
+}
+
+pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
+    let default_search_paths = get_default_search_paths();
+    let mut search_dirs: HashSet<SearchPath> = default_search_paths
+        .into_iter()
+        .filter(|dir| dir.path.exists())
+        .map(|dir| SearchPath::new(dir.path, dir.depth))
+        .collect();
     // Add extra search paths
     for path in extra_search_paths {
         search_dirs.insert(path.clone());
