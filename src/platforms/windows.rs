@@ -315,11 +315,8 @@ pub fn get_frontmost_application() -> Result<App> {
     // }
 }
 
-pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
-    // Create a HashSet of search paths starting with the default Windows paths
-    let mut search_paths: HashSet<SearchPath> = HashSet::new();
-
-    // Add default Windows paths with unlimited depth
+pub fn get_default_search_paths() -> Vec<SearchPath> {
+    let mut search_paths = vec![];
     let appdata_path = format!(
         "{}\\Microsoft\\Windows\\Start Menu\\Programs",
         std::env::var("APPDATA").unwrap()
@@ -328,9 +325,20 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
         "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
         &appdata_path,
     ];
-
     for path in default_paths {
-        search_paths.insert(SearchPath::new(PathBuf::from(path), u8::MAX));
+        search_paths.push(SearchPath::new(PathBuf::from(path), u8::MAX));
+    }
+    search_paths
+}
+
+pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
+    // Create a HashSet of search paths starting with the default Windows paths
+    let mut search_paths: HashSet<SearchPath> = HashSet::new();
+
+    // Add default Windows paths with unlimited depth
+    let default_paths = get_default_search_paths();
+    for path in default_paths {
+        search_paths.insert(path);
     }
 
     // Add extra search paths
