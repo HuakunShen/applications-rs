@@ -33,7 +33,7 @@ pub mod prelude;
 pub mod utils;
 
 pub use common::{App, AppInfo, AppInfoContext, AppTrait};
-pub use platforms::load_icon;
+pub use platforms::{get_all_apps, get_default_search_paths, load_icon};
 
 #[cfg(test)]
 mod tests {

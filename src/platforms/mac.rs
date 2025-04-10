@@ -285,6 +285,10 @@ pub fn search_apps(path: PathBuf, depth: u8) -> Result<Vec<App>> {
     Ok(apps)
 }
 
+pub fn get_default_search_paths() -> Vec<SearchPath> {
+    vec![]
+}
+
 pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
     let mut all_apps = get_all_apps_mdfind()?;
     let mut seen_paths = all_apps

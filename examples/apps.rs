@@ -1,4 +1,4 @@
-use applications::{common::SearchPath, AppInfo, AppInfoContext, AppTrait};
+use applications::{common::SearchPath, AppInfo, AppInfoContext, AppTrait, get_default_search_paths};
 use env_logger;
 use log;
 
@@ -18,4 +18,5 @@ fn main() {
 
     let apps = ctx.get_all_apps();
     // println!("Apps: {:#?}", apps);
+    println!("Default search paths: {:#?}", get_default_search_paths());
 }
