@@ -37,16 +37,15 @@ fn parse_lnk(path: PathBuf) -> Option<App> {
         None => {
             // if exe is not None, use the exe's parent directory
             match &exe {
-                Some(exe) => exe.parent().unwrap().to_path_buf(),
+                Some(exe) => match exe.parent() {
+                    Some(parent) => parent.to_path_buf(),
+                    None => {
+                        eprintln!("exe path has no parent directory in parse_lnk: {:?}", exe);
+                        return None;
+                    }
+                },
                 None => return None,
             }
-            // if exe.is_some() {
-            //     exe.unwrap().parent().unwrap().to_path_buf()
-            // } else {
-            //     // if exe is None, use the path of the lnk file
-            //     return None
-            //     // path.parent().unwrap().to_path_buf()
-            // }
         }
     };
     // println!("{:#?}", path);
