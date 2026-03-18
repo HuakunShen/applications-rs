@@ -94,9 +94,18 @@ pub fn parse_lnk_with_powershell_2(lnk_path: PathBuf) -> anyhow::Result<App> {
     let parsed_json = parse_lnk_with_powershell_1(lnk_path)?;
     let target_path = PathBuf::from(parsed_json.target_path);
     let desktop_path = if parsed_json.working_directory.len() == 0 {
-        PathBuf::from(parsed_json.working_directory)
+        match target_path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => {
+                log::warn!(
+                    "Target path has no parent directory when parsing lnk with powershell: {:?}",
+                    target_path
+                );
+                PathBuf::from(".")
+            }
+        }
     } else {
-        target_path.parent().unwrap().to_path_buf()
+        PathBuf::from(parsed_json.working_directory)
     };
     let icon_path = if parsed_json.icon_location.len() == 0 {
         None
@@ -144,7 +153,13 @@ fn parse_lnk(path: PathBuf) -> Option<App> {
         None => {
             // if exe is not None, use the exe's parent directory
             match &exe {
-                Some(exe) => exe.parent().unwrap().to_path_buf(),
+                Some(exe) => match exe.parent() {
+                    Some(parent) => parent.to_path_buf(),
+                    None => {
+                        log::warn!("exe path has no parent directory in parse_lnk: {:?}", exe);
+                        return None;
+                    }
+                },
                 None => return None,
             }
         }
@@ -244,7 +259,16 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
     let app_exe_path = translate_path_alias(app_exe_path);
     let exe_abs_path = match app_exe_path.exists() {
         true => app_exe_path,
-        false => path.parent().unwrap().join(&app_exe_path),
+        false => match path.parent() {
+            Some(parent) => parent.join(&app_exe_path),
+            None => {
+                log::warn!(
+                    "LNK path has no parent directory when resolving exe path: {:?}",
+                    path
+                );
+                return None;
+            }
+        },
     };
     log::debug!("exe_abs_path: {:?}", exe_abs_path);
     if !exe_abs_path.exists() {
@@ -274,7 +298,13 @@ fn parse_lnk2(path: PathBuf) -> Option<App> {
                 dir
             }
         }
-        None => exe_path.parent().unwrap().to_path_buf(),
+        None => match exe_path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => {
+                log::warn!("exe_path has no parent directory: {:?}", exe_path);
+                return None;
+            }
+        },
     };
 
     let name = path.file_stem().unwrap().to_str().unwrap().to_string();
