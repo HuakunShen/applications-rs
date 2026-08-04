@@ -324,7 +324,14 @@ pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
             continue;
         }
 
-        for entry in WalkDir::new(dir.clone()) {
+        // Icon trees are often built out of symlinked directories: themes
+        // link between their own size directories or into another theme, and
+        // profile-merged setups (NixOS/home-manager) compose one root out of
+        // several packages. walkdir does not descend into those by default,
+        // so their contents were never seen. No spec requires following them
+        // but the walk simply missed files otherwise. Loops and dangling links
+        // surface as errors, which the is_err() check below already skips.
+        for entry in WalkDir::new(dir.clone()).follow_links(true) {
             if entry.is_err() {
                 continue;
             }
