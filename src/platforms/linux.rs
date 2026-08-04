@@ -225,6 +225,43 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
     Ok(apps.iter().cloned().collect())
 }
 
+/// Nominal icon size from the directory name.
+///
+/// https://specifications.freedesktop.org/icon-theme/latest/
+/// The name is convention only; index.theme's `Size` key is the authority
+/// and this does not read it. Sizeless directories like `scalable` therefore
+/// yield `None`.
+/// The scan is not bounded at the theme root, so a `WxH` ancestor can
+/// match, e.g. `/usr/share/icons/1x1/scalable/apps/foo.png` -> `Some(1)`
+fn parse_icon_dimensions(path: &Path) -> Option<u16> {
+    let parent = path.parent()?;
+    // Reverse order + directory-components-only (not the filename) is what
+    // keeps a file literally named "16x16.png" or "xterm.png" from matching
+    // itself or an unrelated ancestor.
+    for component in parent.components().rev() {
+        let Some(component_str) = component.as_os_str().to_str() else {
+            continue;
+        };
+        // Strip an optional "@<scale>" suffix, e.g. "16x16@2" -> "16x16".
+        // index.theme records these as separate Size=16 and Scale=2 keys, so
+        // the unscaled 16 is the size to report, not 32.
+        let base = component_str.split('@').next().unwrap_or(component_str);
+        let mut parts = base.split('x');
+        let w = parts.next();
+        let h = parts.next();
+        if parts.next().is_some() {
+            // more than two "x"-separated halves, e.g. "16x16x16"
+            continue;
+        }
+        if let (Some(w), Some(h)) = (w, h) {
+            if let (Ok(w), Ok(_h)) = (w.parse::<u16>(), h.parse::<u16>()) {
+                return Some(w);
+            }
+        }
+    }
+    None
+}
+
 pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
     // Only the two per-user roots need $HOME; not unwrapped, so the system
     // roots are still returned where it is unset (services, containers).
@@ -296,20 +333,7 @@ pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
             match path.extension() {
                 Some(ext) => {
                     if ext == "png" {
-                        let path_str = path.to_string_lossy().to_string();
-                        let split: Vec<&str> = path_str.split("/").collect();
-                        let dim_str = if split.len() < 6 {
-                            None
-                        } else {
-                            split[5].split("x").last()
-                        };
-                        let dim = match dim_str {
-                            Some(dim) => match dim.parse::<u16>() {
-                                Ok(dim) => Some(dim),
-                                Err(_) => None,
-                            },
-                            None => None,
-                        };
+                        let dim = parse_icon_dimensions(path);
                         set.insert(AppIcon {
                             name: path.file_name().unwrap().to_str().unwrap().to_string(),
                             path: path.to_path_buf(),
@@ -436,6 +460,42 @@ mod tests {
     use std::{str, vec};
 
     use super::*;
+
+    #[test]
+    fn test_parse_icon_dimensions() {
+        let cases: Vec<(&str, Option<u16>)> = vec![
+            ("/usr/share/icons/hicolor/48x48/apps/foo.png", Some(48)),
+            ("/usr/share/icons/hicolor/16x16@2/apps/foo.png", Some(16)),
+            (
+                "/home/user/.local/share/icons/hicolor/256x256/apps/foo.png",
+                Some(256),
+            ),
+            ("/usr/share/icons/hicolor/scalable/apps/foo.png", None),
+            // the "x" in the filename itself must not be mistaken for a size
+            ("/usr/share/icons/hicolor/48x48/apps/xterm.png", Some(48)),
+            (
+                "/usr/share/icons/hicolor/symbolic/apps/foo-symbolic.png",
+                None,
+            ),
+            ("/usr/share/pixmaps/foo.png", None),
+            // a file whose own name is a WxH pair must not match itself
+            ("/usr/share/icons/hicolor/48x48/apps/16x16.png", Some(48)),
+            // hicolor nests contexts deeper than <theme>/<size>/<context>,
+            // which the old fixed index-5 lookup could not follow at all
+            (
+                "/usr/share/icons/hicolor/16x16@2/stock/chart/foo.png",
+                Some(16),
+            ),
+        ];
+        for (path, expected) in cases {
+            assert_eq!(
+                parse_icon_dimensions(&PathBuf::from(path)),
+                expected,
+                "path: {}",
+                path
+            );
+        }
+    }
 
     #[test]
     fn test_clean_exec_path() {
