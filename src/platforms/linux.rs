@@ -119,27 +119,55 @@ pub fn parse_desktop_file(desktop_file_path: &Path) -> (App, bool) {
 
 pub fn get_default_search_paths() -> Vec<SearchPath> {
     let mut search_paths = vec![];
-    // read XDG_DATA_DIRS env var
-    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
+    // https://specifications.freedesktop.org/basedir/latest/
+    // > If $XDG_DATA_DIRS is either not set or empty, a value equal to
+    // > /usr/local/share/:/usr/share/ should be used.
+    //
+    // std::env::var returns Ok("") for an empty variable, so the empty
+    // case has to be rejected explicitly and not just the unset one.
+    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|dirs| !dirs.is_empty())
+        .unwrap_or_else(|| "/usr/local/share/:/usr/share/".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
-    // make a string sett from xdg_data_dirs
+    // make a string set from xdg_data_dirs
     let home_dir = std::env::var("HOME").unwrap();
     let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
-    let mut default_search_paths = vec![
+    let default_search_paths = vec![
         "/usr/share/applications",
         "/usr/share/xsessions",
         "/etc/xdg/autostart",
         "/var/lib/snapd/desktop/applications",
         local_share_apps.to_str().unwrap(),
     ];
-    for path in xdg_data_dirs {
-        default_search_paths.push(path);
-    }
 
     for path in default_search_paths {
         search_paths.push(SearchPath::new(PathBuf::from(path), 1));
     }
+
+    // https://specifications.freedesktop.org/menu/latest/paths.html
+    // > $XDG_DATA_DIRS/applications/
+    // > This directory contains a .desktop file for each possible menu item.
+    //
+    // `xdg_data_dirs` holds bare roots (e.g. "/usr/share"), so join
+    // "applications" onto each one. This is how Flatpak exports its entries
+    // (/var/lib/flatpak/exports/share), which the hardcoded list above misses.
+    for path in xdg_data_dirs {
+        let path = PathBuf::from(path);
+        // Base Directory Specification:
+        // > All paths set in these environment variables must be absolute. If
+        // > an implementation encounters a relative path in any of these
+        // > variables it should consider the path invalid and ignore it.
+        // Without this an empty entry (a trailing or doubled ':') would join
+        // to the relative path "applications", which resolves against the
+        // process's current working directory.
+        if !path.is_absolute() {
+            continue;
+        }
+        search_paths.push(SearchPath::new(path.join("applications"), 1));
+    }
+
     search_paths
 }
 
@@ -197,9 +225,94 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
     Ok(apps.iter().cloned().collect())
 }
 
+/// Nominal icon size from the directory name.
+///
+/// https://specifications.freedesktop.org/icon-theme/latest/
+/// The name is convention only; index.theme's `Size` key is the authority
+/// and this does not read it. Sizeless directories like `scalable` therefore
+/// yield `None`.
+/// The scan is not bounded at the theme root, so a `WxH` ancestor can
+/// match, e.g. `/usr/share/icons/1x1/scalable/apps/foo.png` -> `Some(1)`
+fn parse_icon_dimensions(path: &Path) -> Option<u16> {
+    let parent = path.parent()?;
+    // Reverse order + directory-components-only (not the filename) is what
+    // keeps a file literally named "16x16.png" or "xterm.png" from matching
+    // itself or an unrelated ancestor.
+    for component in parent.components().rev() {
+        let Some(component_str) = component.as_os_str().to_str() else {
+            continue;
+        };
+        // Strip an optional "@<scale>" suffix, e.g. "16x16@2" -> "16x16".
+        // index.theme records these as separate Size=16 and Scale=2 keys, so
+        // the unscaled 16 is the size to report, not 32.
+        let base = component_str.split('@').next().unwrap_or(component_str);
+        let mut parts = base.split('x');
+        let w = parts.next();
+        let h = parts.next();
+        if parts.next().is_some() {
+            // more than two "x"-separated halves, e.g. "16x16x16"
+            continue;
+        }
+        if let (Some(w), Some(h)) = (w, h) {
+            if let (Ok(w), Ok(_h)) = (w.parse::<u16>(), h.parse::<u16>()) {
+                return Some(w);
+            }
+        }
+    }
+    None
+}
+
 pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
-    let hicolor_path: PathBuf = PathBuf::from("/usr/share/icons");
-    let search_dirs = vec![hicolor_path];
+    // Only the two per-user roots need $HOME; not unwrapped, so the system
+    // roots are still returned where it is unset (services, containers).
+    let home_path = std::env::var("HOME").ok().map(PathBuf::from);
+
+    // $XDG_DATA_HOME/icons is covered neither by $XDG_DATA_DIRS below (they
+    // are separate variables) nor by the icon-theme wording quoted further
+    // down, which predates the base directory spec. It is where per-user
+    // icons are installed today, so it goes first.
+    //
+    // https://specifications.freedesktop.org/basedir/latest/
+    // > If $XDG_DATA_HOME is either not set or empty, a default equal to
+    // > $HOME/.local/share should be used.
+    // > All paths set in these environment variables must be absolute. If an
+    // > implementation encounters a relative path in any of these variables it
+    // > should consider the path invalid and ignore it.
+    let xdg_data_home = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .or_else(|| home_path.as_ref().map(|home| home.join(".local/share")));
+
+    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|dirs| !dirs.is_empty())
+        .unwrap_or_else(|| "/usr/local/share/:/usr/share/".to_string());
+
+    // https://specifications.freedesktop.org/icon-theme/latest/
+    // > By default, apps should look in $HOME/.icons (for backwards
+    // > compatibility), in $XDG_DATA_DIRS/icons and in /usr/share/pixmaps
+    // > (in that order).
+    let mut search_dirs: Vec<PathBuf> = Vec::new();
+    if let Some(dir) = xdg_data_home {
+        search_dirs.push(dir.join("icons"));
+    }
+    if let Some(home) = &home_path {
+        search_dirs.push(home.join(".icons"));
+    }
+    for dir in xdg_data_dirs.split(':') {
+        let dir = PathBuf::from(dir);
+        // Without this an empty entry (a trailing or doubled ':') would join
+        // to the relative path "icons", which resolves against the
+        // process's current working directory.
+        if !dir.is_absolute() {
+            continue;
+        }
+        search_dirs.push(dir.join("icons"));
+    }
+    search_dirs.push(PathBuf::from("/usr/share/pixmaps"));
+
     // filter out search_dirs that do not exist
     let search_dirs: Vec<PathBuf> = search_dirs.into_iter().filter(|dir| dir.exists()).collect();
 
@@ -211,7 +324,14 @@ pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
             continue;
         }
 
-        for entry in WalkDir::new(dir.clone()) {
+        // Icon trees are often built out of symlinked directories: themes
+        // link between their own size directories or into another theme, and
+        // profile-merged setups (NixOS/home-manager) compose one root out of
+        // several packages. walkdir does not descend into those by default,
+        // so their contents were never seen. No spec requires following them
+        // but the walk simply missed files otherwise. Loops and dangling links
+        // surface as errors, which the is_err() check below already skips.
+        for entry in WalkDir::new(dir.clone()).follow_links(true) {
             if entry.is_err() {
                 continue;
             }
@@ -220,20 +340,7 @@ pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
             match path.extension() {
                 Some(ext) => {
                     if ext == "png" {
-                        let path_str = path.to_string_lossy().to_string();
-                        let split: Vec<&str> = path_str.split("/").collect();
-                        let dim_str = if split.len() < 6 {
-                            None
-                        } else {
-                            split[5].split("x").last()
-                        };
-                        let dim = match dim_str {
-                            Some(dim) => match dim.parse::<u16>() {
-                                Ok(dim) => Some(dim),
-                                Err(_) => None,
-                            },
-                            None => None,
-                        };
+                        let dim = parse_icon_dimensions(path);
                         set.insert(AppIcon {
                             name: path.file_name().unwrap().to_str().unwrap().to_string(),
                             path: path.to_path_buf(),
@@ -360,6 +467,42 @@ mod tests {
     use std::{str, vec};
 
     use super::*;
+
+    #[test]
+    fn test_parse_icon_dimensions() {
+        let cases: Vec<(&str, Option<u16>)> = vec![
+            ("/usr/share/icons/hicolor/48x48/apps/foo.png", Some(48)),
+            ("/usr/share/icons/hicolor/16x16@2/apps/foo.png", Some(16)),
+            (
+                "/home/user/.local/share/icons/hicolor/256x256/apps/foo.png",
+                Some(256),
+            ),
+            ("/usr/share/icons/hicolor/scalable/apps/foo.png", None),
+            // the "x" in the filename itself must not be mistaken for a size
+            ("/usr/share/icons/hicolor/48x48/apps/xterm.png", Some(48)),
+            (
+                "/usr/share/icons/hicolor/symbolic/apps/foo-symbolic.png",
+                None,
+            ),
+            ("/usr/share/pixmaps/foo.png", None),
+            // a file whose own name is a WxH pair must not match itself
+            ("/usr/share/icons/hicolor/48x48/apps/16x16.png", Some(48)),
+            // hicolor nests contexts deeper than <theme>/<size>/<context>,
+            // which the old fixed index-5 lookup could not follow at all
+            (
+                "/usr/share/icons/hicolor/16x16@2/stock/chart/foo.png",
+                Some(16),
+            ),
+        ];
+        for (path, expected) in cases {
+            assert_eq!(
+                parse_icon_dimensions(&PathBuf::from(path)),
+                expected,
+                "path: {}",
+                path
+            );
+        }
+    }
 
     #[test]
     fn test_clean_exec_path() {
