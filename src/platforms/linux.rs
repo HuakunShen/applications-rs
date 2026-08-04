@@ -119,27 +119,55 @@ pub fn parse_desktop_file(desktop_file_path: &Path) -> (App, bool) {
 
 pub fn get_default_search_paths() -> Vec<SearchPath> {
     let mut search_paths = vec![];
-    // read XDG_DATA_DIRS env var
-    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").unwrap_or("/usr/share".to_string());
+    // https://specifications.freedesktop.org/basedir/latest/
+    // > If $XDG_DATA_DIRS is either not set or empty, a value equal to
+    // > /usr/local/share/:/usr/share/ should be used.
+    //
+    // std::env::var returns Ok("") for an empty variable, so the empty
+    // case has to be rejected explicitly and not just the unset one.
+    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|dirs| !dirs.is_empty())
+        .unwrap_or_else(|| "/usr/local/share/:/usr/share/".to_string());
     let xdg_data_dirs: Vec<&str> = xdg_data_dirs.split(':').collect();
-    // make a string sett from xdg_data_dirs
+    // make a string set from xdg_data_dirs
     let home_dir = std::env::var("HOME").unwrap();
     let home_path = PathBuf::from(home_dir);
     let local_share_apps = home_path.join(".local/share/applications");
-    let mut default_search_paths = vec![
+    let default_search_paths = vec![
         "/usr/share/applications",
         "/usr/share/xsessions",
         "/etc/xdg/autostart",
         "/var/lib/snapd/desktop/applications",
         local_share_apps.to_str().unwrap(),
     ];
-    for path in xdg_data_dirs {
-        default_search_paths.push(path);
-    }
 
     for path in default_search_paths {
         search_paths.push(SearchPath::new(PathBuf::from(path), 1));
     }
+
+    // https://specifications.freedesktop.org/menu/latest/paths.html
+    // > $XDG_DATA_DIRS/applications/
+    // > This directory contains a .desktop file for each possible menu item.
+    //
+    // `xdg_data_dirs` holds bare roots (e.g. "/usr/share"), so join
+    // "applications" onto each one. This is how Flatpak exports its entries
+    // (/var/lib/flatpak/exports/share), which the hardcoded list above misses.
+    for path in xdg_data_dirs {
+        let path = PathBuf::from(path);
+        // Base Directory Specification:
+        // > All paths set in these environment variables must be absolute. If
+        // > an implementation encounters a relative path in any of these
+        // > variables it should consider the path invalid and ignore it.
+        // Without this an empty entry (a trailing or doubled ':') would join
+        // to the relative path "applications", which resolves against the
+        // process's current working directory.
+        if !path.is_absolute() {
+            continue;
+        }
+        search_paths.push(SearchPath::new(path.join("applications"), 1));
+    }
+
     search_paths
 }
 
