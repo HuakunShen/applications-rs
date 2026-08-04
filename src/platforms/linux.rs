@@ -226,8 +226,56 @@ pub fn get_all_apps(extra_search_paths: &Vec<SearchPath>) -> Result<Vec<App>> {
 }
 
 pub fn find_all_app_icons() -> Result<HashMap<String, Vec<AppIcon>>> {
-    let hicolor_path: PathBuf = PathBuf::from("/usr/share/icons");
-    let search_dirs = vec![hicolor_path];
+    // Only the two per-user roots need $HOME; not unwrapped, so the system
+    // roots are still returned where it is unset (services, containers).
+    let home_path = std::env::var("HOME").ok().map(PathBuf::from);
+
+    // $XDG_DATA_HOME/icons is covered neither by $XDG_DATA_DIRS below (they
+    // are separate variables) nor by the icon-theme wording quoted further
+    // down, which predates the base directory spec. It is where per-user
+    // icons are installed today, so it goes first.
+    //
+    // https://specifications.freedesktop.org/basedir/latest/
+    // > If $XDG_DATA_HOME is either not set or empty, a default equal to
+    // > $HOME/.local/share should be used.
+    // > All paths set in these environment variables must be absolute. If an
+    // > implementation encounters a relative path in any of these variables it
+    // > should consider the path invalid and ignore it.
+    let xdg_data_home = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|dir| !dir.is_empty())
+        .map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .or_else(|| home_path.as_ref().map(|home| home.join(".local/share")));
+
+    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|dirs| !dirs.is_empty())
+        .unwrap_or_else(|| "/usr/local/share/:/usr/share/".to_string());
+
+    // https://specifications.freedesktop.org/icon-theme/latest/
+    // > By default, apps should look in $HOME/.icons (for backwards
+    // > compatibility), in $XDG_DATA_DIRS/icons and in /usr/share/pixmaps
+    // > (in that order).
+    let mut search_dirs: Vec<PathBuf> = Vec::new();
+    if let Some(dir) = xdg_data_home {
+        search_dirs.push(dir.join("icons"));
+    }
+    if let Some(home) = &home_path {
+        search_dirs.push(home.join(".icons"));
+    }
+    for dir in xdg_data_dirs.split(':') {
+        let dir = PathBuf::from(dir);
+        // Without this an empty entry (a trailing or doubled ':') would join
+        // to the relative path "icons", which resolves against the
+        // process's current working directory.
+        if !dir.is_absolute() {
+            continue;
+        }
+        search_dirs.push(dir.join("icons"));
+    }
+    search_dirs.push(PathBuf::from("/usr/share/pixmaps"));
+
     // filter out search_dirs that do not exist
     let search_dirs: Vec<PathBuf> = search_dirs.into_iter().filter(|dir| dir.exists()).collect();
 
